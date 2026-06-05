@@ -1,0 +1,16 @@
+{
+  "name": "forge-fit-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Utility scripts for Forge Fit data seeding.",
+  "scripts": {
+    "seed:exercisedb": "node scripts/seed_exercisedb_to_firestore.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "firebase-admin": "^12.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "135128399213",
+    "project_id": "forge-fit-ccdde",
+    "storage_bucket": "forge-fit-ccdde.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:135128399213:android:16bc4fa5d91085b1f26e64",
+        "android_client_info": {
+          "package_name": "com.forgefit.forge_fit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "135128399213-t144fqq97nsfk17qp0jgtap6to5obo3a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.forgefit.forge_fit",
+            "certificate_hash": "a3a56de5abb0d7d578320a98d65459d447b751c9"
+          }
+        },
+        {
+          "client_id": "135128399213-ll28p2lqfbp7asd2gacb6h2mp1re2gri.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQ2y30DeD-SyAJ2fj1HJLmMezDtugApgo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "135128399213-ll28p2lqfbp7asd2gacb6h2mp1re2gri.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
