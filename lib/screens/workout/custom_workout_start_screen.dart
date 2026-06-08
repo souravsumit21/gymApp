@@ -15,6 +15,9 @@ import '../../services/library_service.dart';
 import '../../services/voice_cue_service.dart';
 import '../../services/workout_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/progress_calculator.dart';
+import '../../utils/share_config.dart';
+import '../../widgets/share_workout_sheet.dart';
 
 const _uuid = Uuid();
 
@@ -542,6 +545,18 @@ class _CustomWorkoutStartScreenState
     }
   }
 
+  Set<String> _bodyPartsTrained() {
+    final parts = <String>{};
+    if (_workout != null) {
+      parts.addAll(normalizeBodyParts(_workout!.targetBodyParts));
+    }
+    final limit = (_exerciseIndex + 1).clamp(0, _exercises.length);
+    for (var i = 0; i < limit; i++) {
+      parts.addAll(normalizeBodyParts(_exercises[i].source.bodyParts));
+    }
+    return parts;
+  }
+
   void _logWeight(_RunExercise exercise, {int? set, int? round}) {
     final log = _weightLog.putIfAbsent(exercise.source.exerciseId, () => []);
     log.add({
@@ -563,6 +578,7 @@ class _CustomWorkoutStartScreenState
     final startedAt = _startedAt ?? DateTime.now();
     final end = DateTime.now();
     try {
+      final bodyParts = _bodyPartsTrained();
       final session = WorkoutSession(
         id: _uuid.v4(),
         userId: uid,
@@ -577,12 +593,14 @@ class _CustomWorkoutStartScreenState
             .map((e) => e.source.exerciseId)
             .toList(),
         totalSets: _totalSets,
+        totalVolumeKg: volumeFromWeightLog(_weightLog),
         caloriesBurned:
             (end.difference(startedAt).inMinutes * 5).clamp(0, 9999),
         notes: endedEarly ? 'Ended early' : null,
         weightLog: _weightLog,
         workoutMode: _mode.name,
         sourceType: 'custom_workout',
+        bodyPartsTrained: bodyParts.toList(),
       );
       await ref.read(workoutServiceProvider).saveSession(session);
       await ref
@@ -979,6 +997,23 @@ class _CustomWorkoutStartScreenState
           canSavePreset: _canSaveCompletedSetupAsPreset,
           onSavePreset: _saveCompletedSetupAsPreset,
           onDone: () => context.go('/workouts'),
+          onShareWorkout: _workout == null
+              ? null
+              : () async {
+                  final uid =
+                      ref.read(authStateProvider).valueOrNull?.uid ?? '';
+                  final profile = await ref
+                      .read(authServiceProvider)
+                      .loadUserProfile(uid);
+                  if (profile != null && context.mounted) {
+                    await ShareWorkoutSheet.show(
+                      context,
+                      ref,
+                      workout: _workout!,
+                      creator: profile,
+                    );
+                  }
+                },
         );
     }
   }
@@ -1489,6 +1524,7 @@ class _CompleteView extends StatefulWidget {
   final bool canSavePreset;
   final Future<void> Function() onSavePreset;
   final VoidCallback onDone;
+  final Future<void> Function()? onShareWorkout;
 
   const _CompleteView({
     required this.session,
@@ -1496,6 +1532,7 @@ class _CompleteView extends StatefulWidget {
     required this.canSavePreset,
     required this.onSavePreset,
     required this.onDone,
+    this.onShareWorkout,
   });
 
   @override
@@ -1589,6 +1626,14 @@ class _CompleteViewState extends State<_CompleteView> {
             return entries.map((entry) => _WeightLogTile(entry: entry));
           }),
         const SizedBox(height: 24),
+        if (widget.onShareWorkout != null) ...[
+          ElevatedButton.icon(
+            onPressed: widget.onShareWorkout,
+            icon: const Icon(Icons.fitness_center_rounded),
+            label: const Text('Share Workout'),
+          ),
+          const SizedBox(height: 12),
+        ],
         OutlinedButton.icon(
           onPressed: _shareResults,
           icon: const Icon(Icons.share_outlined),
@@ -1602,7 +1647,8 @@ class _CompleteViewState extends State<_CompleteView> {
 
   Future<void> _shareResults() async {
     final buffer = StringBuffer()
-      ..writeln('I just completed ${widget.session.dayName} in Forge Fit.')
+      ..writeln(
+          'I just completed ${widget.session.dayName} in ${ShareConfig.appName}.')
       ..writeln('Duration: ${widget.session.durationMinutes} min')
       ..writeln('Calories: ${widget.session.caloriesBurned}')
       ..writeln('Exercises: ${widget.session.completedExerciseIds.length}');

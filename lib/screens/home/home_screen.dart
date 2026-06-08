@@ -13,6 +13,7 @@ class HomeScreen extends StatelessWidget {
   int _locationToIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/progress')) return 1;
+    if (location.startsWith('/community')) return 0;
     return 0;
   }
 

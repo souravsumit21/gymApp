@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import '../../services/auth_service.dart';
 import '../../services/purchase_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -27,7 +28,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   }
 
   Future<void> _loadOfferings() async {
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid != null) {
+      await PurchaseService.initialize(uid);
+    }
     final svc = ref.read(purchaseServiceProvider);
+    if (!PurchaseService.isConfigured) {
+      setState(() {
+        _error = 'Purchases are not configured yet.';
+      });
+      return;
+    }
     final offerings = await svc.getOfferings();
     setState(() {
       _offerings = offerings;

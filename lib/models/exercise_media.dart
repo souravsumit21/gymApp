@@ -196,6 +196,10 @@ class CustomWorkout {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? lastPerformed;
+  final bool importedFromShare;
+  final bool importedFromCommunity;
+  final String? sourceShareId;
+  final String? sourceCommunityWorkoutId;
 
   const CustomWorkout({
     required this.id,
@@ -211,7 +215,14 @@ class CustomWorkout {
     required this.createdAt,
     this.updatedAt,
     this.lastPerformed,
+    this.importedFromShare = false,
+    this.importedFromCommunity = false,
+    this.sourceShareId,
+    this.sourceCommunityWorkoutId,
   }) : exerciseCount = exerciseCount ?? exercises.length;
+
+  bool get canPublishToCommunity =>
+      !importedFromShare && !importedFromCommunity;
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -227,6 +238,10 @@ class CustomWorkout {
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
     'lastPerformed': lastPerformed?.toIso8601String(),
+    'importedFromShare': importedFromShare,
+    'importedFromCommunity': importedFromCommunity,
+    'sourceShareId': sourceShareId,
+    'sourceCommunityWorkoutId': sourceCommunityWorkoutId,
   };
 
   factory CustomWorkout.fromMap(Map<String, dynamic> m) => CustomWorkout(
@@ -249,6 +264,10 @@ class CustomWorkout {
     lastPerformed: m['lastPerformed'] != null
         ? DateTime.parse(m['lastPerformed'])
         : null,
+    importedFromShare: m['importedFromShare'] ?? false,
+    importedFromCommunity: m['importedFromCommunity'] ?? false,
+    sourceShareId: m['sourceShareId'],
+    sourceCommunityWorkoutId: m['sourceCommunityWorkoutId'],
   );
 }
 

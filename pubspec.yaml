@@ -1,5 +1,5 @@
 name: forge_fit
-description: Home workout app with personalized plans and progress tracking.
+description: Repp Up — home workout app with personalized plans and progress tracking.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -32,6 +32,7 @@ dependencies:
   fl_chart: ^0.67.0
   table_calendar: ^3.1.0
   flutter_svg: ^2.0.10+1
+  video_player: ^2.9.2
 
   # Payments
   purchases_flutter: ^10.2.0   # RevenueCat
@@ -50,6 +51,9 @@ dependencies:
   cupertino_icons: ^1.0.6
   google_fonts: ^8.1.0
   share_plus: ^13.1.0
+  url_launcher: ^6.3.1
+  path_provider: ^2.1.2
+  app_links: ^6.3.2
   flutter_tts: ^4.2.5
 
 dev_dependencies:
@@ -58,10 +62,29 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   build_runner: ^2.4.8
   riverpod_generator: ^2.3.9
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/app_icon.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/images/app_icon.png
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  android_12:
+    color: "#FFFFFF"
+    icon_background_color: "#FFFFFF"
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/images/reppup_logo.svg
+    - assets/images/app_icon.png
     - assets/icons/
     - assets/animations/
+    - assets/animations/reppup_splash.mp4

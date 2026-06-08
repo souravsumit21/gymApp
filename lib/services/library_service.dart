@@ -100,6 +100,7 @@ class LibraryService {
 
   // ── Custom Workouts ──────────────────────────────────────
   Stream<List<CustomWorkout>> watchCustomWorkouts(String userId) {
+    if (userId.isEmpty) return Stream.value(const []);
     return _db
         .collection('users')
         .doc(userId)
@@ -110,6 +111,9 @@ class LibraryService {
   }
 
   Future<void> saveCustomWorkout(CustomWorkout workout) async {
+    if (workout.userId.isEmpty) {
+      throw StateError('Cannot save workout without a signed-in user.');
+    }
     await _db
         .collection('users')
         .doc(workout.userId)

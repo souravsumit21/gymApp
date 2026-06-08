@@ -8,7 +8,7 @@ class AppTheme {
   static const Color surfaceElevated = Color(0xFFF7F7F8);
   static const Color primary = Color(0xFF111111);      // Black primary CTA
   static const Color primaryDim = Color(0xFF3A3A3A);
-  static const Color accent = Color(0xFFE85D04);       // Warm orange for alerts/highlights
+  static const Color accent = Color(0xFFFF6D00);       // Brand orange — highlights, streaks, alerts
   static const Color accentYellow = Color(0xFFEAB308); // Yellow for info/secondary accents
   static const Color textPrimary = Color(0xFF111111);
   static const Color textSecondary = Color(0xFF5F6368);
@@ -25,7 +25,7 @@ class AppTheme {
         background: background,
         surface: surface,
         primary: primary,
-        secondary: accentYellow,
+        secondary: accent,
         error: accent,
         onBackground: textPrimary,
         onSurface: textPrimary,

@@ -7,6 +7,7 @@ class UserProfile extends Equatable {
   final String uid;
   final String email;
   final String displayName;
+  final String? username;
   final String? photoUrl;
   final int? age;
   final String? gender;       // 'male' | 'female' | 'other'
@@ -29,6 +30,7 @@ class UserProfile extends Equatable {
     required this.uid,
     required this.email,
     required this.displayName,
+    this.username,
     this.photoUrl,
     this.age,
     this.gender,
@@ -54,8 +56,13 @@ class UserProfile extends Equatable {
     return weightKg! / (hm * hm);
   }
 
+  bool get hasUsername => username != null && username!.trim().isNotEmpty;
+
+  String get shareHandle => hasUsername ? username!.trim().toLowerCase() : displayName;
+
   UserProfile copyWith({
     String? displayName,
+    String? username,
     String? photoUrl,
     int? age,
     String? gender,
@@ -77,6 +84,7 @@ class UserProfile extends Equatable {
       uid: uid,
       email: email,
       displayName: displayName ?? this.displayName,
+      username: username ?? this.username,
       photoUrl: photoUrl ?? this.photoUrl,
       age: age ?? this.age,
       gender: gender ?? this.gender,
@@ -102,6 +110,7 @@ class UserProfile extends Equatable {
     'uid': uid,
     'email': email,
     'displayName': displayName,
+    'username': username,
     'photoUrl': photoUrl,
     'age': age,
     'gender': gender,
@@ -125,6 +134,7 @@ class UserProfile extends Equatable {
     uid: map['uid'],
     email: map['email'],
     displayName: map['displayName'],
+    username: map['username'],
     photoUrl: map['photoUrl'],
     age: map['age'],
     gender: map['gender'],
@@ -400,6 +410,7 @@ class WorkoutSession extends Equatable {
   final Map<String, dynamic>? weightLog;
   final String? workoutMode;
   final String? sourceType;
+  final List<String> bodyPartsTrained;
   final int mood;   // 1–5
   final int energy; // 1–5
 
@@ -420,6 +431,7 @@ class WorkoutSession extends Equatable {
     this.weightLog,
     this.workoutMode,
     this.sourceType,
+    this.bodyPartsTrained = const [],
     this.mood = 3,
     this.energy = 3,
   });
@@ -443,6 +455,7 @@ class WorkoutSession extends Equatable {
     'weightLog': weightLog,
     'workoutMode': workoutMode,
     'sourceType': sourceType,
+    'bodyPartsTrained': bodyPartsTrained,
     'mood': mood,
     'energy': energy,
   };
@@ -466,6 +479,7 @@ class WorkoutSession extends Equatable {
         : null,
     workoutMode: m['workoutMode'],
     sourceType: m['sourceType'],
+    bodyPartsTrained: List<String>.from(m['bodyPartsTrained'] ?? []),
     mood: m['mood'] ?? 3,
     energy: m['energy'] ?? 3,
   );

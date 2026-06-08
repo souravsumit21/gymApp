@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
+import 'router_refresh.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/home/home_screen.dart';
@@ -13,16 +14,29 @@ import '../screens/library/custom_workout_builder_screen.dart';
 import '../screens/progress/progress_screen.dart';
 import '../screens/paywall/paywall_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../screens/library/custom_workout_detail_screen.dart';
+import '../screens/share/shared_workout_preview_screen.dart';
+import '../screens/share/notifications_screen.dart';
+import '../screens/community/community_library_screen.dart';
+import '../screens/community/community_workout_detail_screen.dart';
+import '../screens/community/publish_workout_screen.dart';
+import '../screens/splash/splash_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final user = authState.valueOrNull;
-  final profileState =
-      user == null ? null : ref.watch(userProfileProvider(user.uid));
+  final refresh = ref.watch(routerRefreshProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    refreshListenable: refresh,
+    initialLocation: '/splash',
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+      final user = authState.valueOrNull;
+      final profileState =
+          user == null ? null : ref.read(userProfileProvider(user.uid));
+
+      final isSplash = state.matchedLocation == '/splash';
+      if (isSplash) return null;
+
       if (authState.isLoading) return null;
 
       final isLoggedIn = user != null;
@@ -44,6 +58,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         name: 'login',
@@ -73,6 +92,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const CustomWorkoutBuilderScreen(),
               ),
               GoRoute(
+                path: 'custom/:workoutId',
+                name: 'custom-workout-detail',
+                builder: (context, state) => CustomWorkoutDetailScreen(
+                  workoutId: state.pathParameters['workoutId']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'publish',
+                    name: 'publish-workout',
+                    builder: (context, state) => PublishWorkoutScreen(
+                      workoutId: state.pathParameters['workoutId']!,
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
                 path: ':planId',
                 name: 'plan-detail',
                 builder: (context, state) => PlanDetailScreen(
@@ -91,7 +126,41 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'settings',
             builder: (context, state) => const SettingsScreen(),
           ),
+          GoRoute(
+            path: '/community',
+            name: 'community',
+            builder: (context, state) => const CommunityLibraryScreen(),
+            routes: [
+              GoRoute(
+                path: ':workoutId',
+                name: 'community-workout-detail',
+                builder: (context, state) => CommunityWorkoutDetailScreen(
+                  workoutId: state.pathParameters['workoutId']!,
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/share/:shareId',
+        name: 'shared-workout-preview',
+        builder: (context, state) => SharedWorkoutPreviewScreen(
+          shareId: state.pathParameters['shareId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/w/:shareId',
+        name: 'external-share-deeplink',
+        builder: (context, state) => SharedWorkoutPreviewScreen(
+          shareId: state.pathParameters['shareId']!,
+          isExternal: true,
+        ),
       ),
       GoRoute(
         path: '/workout/custom/:workoutId/start',

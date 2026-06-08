@@ -13,6 +13,7 @@ import '../../services/voice_cue_service.dart';
 import '../../services/workout_service.dart';
 import '../../data/exercise_library_data.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/progress_calculator.dart';
 
 const _uuid = Uuid();
 
@@ -173,6 +174,12 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     final endTime = DateTime.now();
     final duration = endTime.difference(_startTime).inMinutes;
 
+    final bodyParts = <String>{};
+    final target = _day?.targetBodyPart;
+    if (target != null) {
+      bodyParts.addAll(normalizeBodyParts([target]));
+    }
+
     final session = WorkoutSession(
       id: _uuid.v4(),
       userId: uid,
@@ -185,6 +192,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
       completedExerciseIds: _completedExerciseIds,
       totalSets: _totalSets,
       caloriesBurned: _estimateCalories(),
+      bodyPartsTrained: bodyParts.toList(),
     );
 
     await ref.read(workoutServiceProvider).saveSession(session);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../services/auth_service.dart';
 import '../../services/voice_cue_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -16,11 +17,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   List<TtsVoiceOption> _voices = [];
   TtsVoiceOption? _selectedVoice;
   TtsVoiceGender _selectedGender = TtsVoiceGender.female;
+  final _usernameController = TextEditingController();
+  bool _savingUsername = false;
+  String? _usernameError;
 
   @override
   void initState() {
     super.initState();
     _voiceDataFuture = _loadVoiceData();
+    _loadUsername();
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUsername() async {
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    final profile = await ref.read(authServiceProvider).loadUserProfile(uid);
+    if (profile?.username != null) {
+      _usernameController.text = profile!.username!;
+    }
+  }
+
+  Future<void> _saveUsername() async {
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null) return;
+
+    setState(() {
+      _savingUsername = true;
+      _usernameError = null;
+    });
+
+    try {
+      final ok = await ref
+          .read(authServiceProvider)
+          .setUsername(uid, _usernameController.text.trim());
+      if (!mounted) return;
+      if (!ok) {
+        setState(() {
+          _savingUsername = false;
+          _usernameError = 'That username is already taken.';
+        });
+        return;
+      }
+      setState(() => _savingUsername = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username saved')),
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _savingUsername = false;
+        _usernameError = e.message;
+      });
+    }
   }
 
   Future<_VoiceSettingsData> _loadVoiceData() async {
@@ -131,6 +185,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
+              _SettingsSection(
+                title: 'Username',
+                subtitle:
+                    'Your @username for sharing. Set here anytime, or when you share for the first time.',
+                children: [
+                  TextField(
+                    controller: _usernameController,
+                    decoration: InputDecoration(
+                      hintText: 'your_username',
+                      prefixText: '@',
+                      errorText: _usernameError,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: _savingUsername ? null : _saveUsername,
+                      child: Text(
+                        _savingUsername ? 'Saving...' : 'Save Username',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               _SettingsSection(
                 title: 'Workout Voice',
                 subtitle: 'Choose a male or female voice for workout cues.',

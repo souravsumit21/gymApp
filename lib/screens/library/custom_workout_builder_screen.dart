@@ -144,7 +144,11 @@ class _CustomWorkoutBuilderScreenState
 
     setState(() => _isSaving = true);
     try {
-      final uid = ref.read(authStateProvider).valueOrNull?.uid ?? '';
+      final uid = ref.read(authStateProvider).valueOrNull?.uid;
+      if (uid == null || uid.isEmpty) {
+        setState(() => _error = 'You must be signed in to save workouts.');
+        return;
+      }
       final svc = ref.read(libraryServiceProvider);
       final now = DateTime.now();
       final workout = CustomWorkout(

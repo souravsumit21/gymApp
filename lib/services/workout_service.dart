@@ -22,6 +22,7 @@ class WorkoutService {
   }
 
   Stream<List<WorkoutPlan>> watchPlans(String userId) {
+    if (userId.isEmpty) return Stream.value(const []);
     return _db
         .collection('users')
         .doc(userId)
@@ -60,6 +61,7 @@ class WorkoutService {
   }
 
   Stream<List<WorkoutSession>> watchSessions(String userId) {
+    if (userId.isEmpty) return Stream.value(const []);
     return _db
         .collection('users')
         .doc(userId)
