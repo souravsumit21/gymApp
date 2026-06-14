@@ -114,10 +114,11 @@ class _CustomWorkoutDetailScreenState
               Text('Exercises',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
-              ...workout.exercises.map(
-                (e) => _ExerciseTile(
-                  exercise: e,
-                  libraryMedia: library[e.exerciseId]?.media,
+              ...workout.exercises.asMap().entries.map(
+                (entry) => _ExerciseTile(
+                  index: entry.key,
+                  exercise: entry.value,
+                  libraryMedia: library[entry.value.exerciseId]?.media,
                 ),
               ),
               const SizedBox(height: 24),
@@ -136,23 +137,21 @@ class _CustomWorkoutDetailScreenState
 }
 
 class _ExerciseTile extends StatelessWidget {
+  final int index;
   final CustomWorkoutExercise exercise;
   final ExerciseMedia? libraryMedia;
 
   const _ExerciseTile({
+    required this.index,
     required this.exercise,
     required this.libraryMedia,
   });
 
   @override
   Widget build(BuildContext context) {
-    final detail = exercise.seconds != null
-        ? '${exercise.sets} sets × ${exercise.seconds}s'
-        : '${exercise.sets} sets × ${exercise.reps ?? 0} reps';
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -179,20 +178,27 @@ class _ExerciseTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          CircleAvatar(
+            radius: 10,
+            backgroundColor: AppTheme.primary,
+            child: Text(
+              '${index + 1}',
+              style: TextStyle(
+                color: AppTheme.background,
+                fontWeight: FontWeight.w800,
+                fontSize: AppTheme.textLabel,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exercise.exerciseName,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$detail · ${exercise.restSeconds}s rest',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+            child: Text(
+              exercise.exerciseName,
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: AppTheme.textBody,
+              ),
             ),
           ),
         ],

@@ -65,7 +65,7 @@ class _CustomWorkoutStartScreenState
   int _restBetweenRounds = 60;
   int _getReadySeconds = 5;
   int _circuitExerciseSeconds = 30;
-  int _rounds = 3;
+  int _rounds = kCircuitDefaultRounds;
   bool _isKg = true;
 
   final List<_RunExercise> _exercises = [];
@@ -268,6 +268,7 @@ class _CustomWorkoutStartScreenState
     setState(() {
       _mode = mode;
       if (mode == _WorkoutMode.circuit) {
+        _rounds = kCircuitDefaultRounds;
         for (final exercise in _exercises) {
           exercise.seconds ??= _circuitExerciseSeconds;
         }
@@ -992,6 +993,7 @@ class _CustomWorkoutStartScreenState
       case _WorkoutStage.getReady:
         return _RestView(
           progressLabel: 'Get Ready',
+          isRestScreen: false,
           exerciseName: _currentExercise.source.exerciseName,
           secondsLeft: _timerLeft,
           media: resolveExerciseMedia(
@@ -1005,7 +1007,6 @@ class _CustomWorkoutStartScreenState
         );
       case _WorkoutStage.restExercise:
         return _RestView(
-          progressLabel: 'Rest Between Rounds',
           exerciseName: 'Round ${_roundIndex + 1}',
           secondsLeft: _timerLeft,
           onSkip: _skipTimer,
@@ -1028,7 +1029,6 @@ class _CustomWorkoutStartScreenState
             ? _exercises[_exerciseIndex + 1]
             : null;
         return _RestView(
-          progressLabel: 'Rest Between Exercises',
           exerciseName:
               next?.source.exerciseName ?? _currentExercise.source.exerciseName,
           secondsLeft: _timerLeft,
@@ -1042,6 +1042,7 @@ class _CustomWorkoutStartScreenState
           onSkip: _skipTimer,
           onTogglePause: _togglePause,
           showPauseHint: true,
+          mediaBlurSigma: kRestPreviewBlurSigma,
         );
       case _WorkoutStage.complete:
         return _CompleteView(
@@ -1163,9 +1164,6 @@ class _ConfigView extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             children: [
-              Text(workout.name,
-                  style: Theme.of(context).textTheme.displaySmall),
-              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
@@ -1235,33 +1233,18 @@ class _ConfigView extends StatelessWidget {
                   ],
                 ],
               ),
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Column(
-                  children: [
-                    SwitchListTile(
-                      value: warmupEnabled,
-                      onChanged: onWarmupChanged,
-                      title: const Text('Warmup'),
+              _ConfigCard(
+                title: 'Rest Timers',
+                children: [
+                  if (mode == _WorkoutMode.standard) ...[
+                    Text('Rest Between Sets',
+                        style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 8),
+                    _RestPicker(
+                      value: restBetweenSets,
+                      onChanged: onRestSetsChanged,
                     ),
-                    SwitchListTile(
-                      value: shuffle,
-                      onChanged: onShuffleChanged,
-                      title: const Text('Shuffle exercise order'),
-                    ),
-                  ],
-                ),
-              ),
-              if (mode == _WorkoutMode.circuit)
-                _ConfigCard(
-                  title: 'Rest Timers',
-                  children: [
+                  ] else ...[
                     Text('Get Ready Timer',
                         style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 8),
@@ -1287,7 +1270,25 @@ class _ConfigView extends StatelessWidget {
                       onChanged: onRestRoundsChanged,
                     ),
                   ],
-                ),
+                ],
+              ),
+              _ConfigCard(
+                title: 'Options',
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: warmupEnabled,
+                    onChanged: onWarmupChanged,
+                    title: const Text('Warmup'),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: shuffle,
+                    onChanged: onShuffleChanged,
+                    title: const Text('Shuffle exercise order'),
+                  ),
+                ],
+              ),
               _ConfigCard(
                 title: 'Exercise List',
                 children: [
@@ -1385,7 +1386,6 @@ class _WarmupView extends StatelessWidget {
       media: warmup.media,
       progressLabel: 'Warmup ${index + 1} of $total',
       exerciseName: warmup.name,
-      counterText: 'Ready',
       onAction: onNext,
       actionIcon: Icons.skip_next_rounded,
       actionTooltip: 'Next',
@@ -1526,43 +1526,32 @@ class _StandardRestCountdownView extends StatelessWidget {
               const Spacer(),
               Text(
                 'Rest',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w500,
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 16),
               Text(
-                '$secondsLeft',
+                '${secondsLeft}s',
                 style: AppTypography.statHero(),
               ),
               const Spacer(flex: 2),
-              Text(
-                'Upcoming Exercise',
-                style: TextStyle(
-                  color: AppTheme.textMuted,
-                  fontSize: AppTheme.textLabel,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                ),
-              ),
-              const SizedBox(height: 10),
               Row(
                 children: [
                   _ExerciseImage(
                     media: upcomingMedia,
                     height: 56,
                     width: 56,
+                    blurSigma: kRestPreviewBlurSigma,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      upcomingExerciseName,
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: AppTheme.textBody,
-                      ),
+                      'Upcoming · $upcomingExerciseName',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1647,22 +1636,26 @@ class _ActiveExerciseView extends StatelessWidget {
 }
 
 class _RestView extends StatelessWidget {
-  final String progressLabel;
   final String exerciseName;
   final int secondsLeft;
   final ExerciseMedia? media;
   final VoidCallback onSkip;
   final VoidCallback? onTogglePause;
   final bool showPauseHint;
+  final double mediaBlurSigma;
+  final bool isRestScreen;
+  final String progressLabel;
 
   const _RestView({
-    required this.progressLabel,
     required this.exerciseName,
     required this.secondsLeft,
     this.media,
     required this.onSkip,
     this.onTogglePause,
     this.showPauseHint = false,
+    this.mediaBlurSigma = 0,
+    this.isRestScreen = true,
+    this.progressLabel = '',
   });
 
   @override
@@ -1671,7 +1664,9 @@ class _RestView extends StatelessWidget {
       media: media,
       progressLabel: progressLabel,
       exerciseName: exerciseName,
-      counterText: '$secondsLeft',
+      counterText: isRestScreen ? '${secondsLeft}s' : '$secondsLeft',
+      mediaBlurSigma: mediaBlurSigma,
+      isRestScreen: isRestScreen,
       onTap: showPauseHint ? onTogglePause : null,
       onAction: onSkip,
       actionTooltip: 'Skip',
@@ -1856,7 +1851,13 @@ class _MetricCard extends StatelessWidget {
                 fontSize: AppTheme.textLabel,
               )),
           const SizedBox(height: 4),
-          Text(value, style: AppTypography.stat()),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                ),
+          ),
         ],
       ),
     );
@@ -1985,17 +1986,11 @@ class _RestPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const options = [30, 45, 60, 90, 120];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: options.map((option) {
-        final selected = option == value;
-        return ChoiceChip(
-          label: Text('${option}s'),
-          selected: selected,
-          onSelected: (_) => onChanged(option),
-        );
-      }).toList(),
+    return _CompactDurationChips(
+      options: options,
+      value: value,
+      labelBuilder: (option) => '${option}s',
+      onChanged: onChanged,
     );
   }
 }
@@ -2013,16 +2008,84 @@ class _SecondsPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: options.map((option) {
-        return ChoiceChip(
-          label: Text('${option}s'),
-          selected: option == value,
-          onSelected: (_) => onChanged(option),
-        );
-      }).toList(),
+    return _CompactDurationChips(
+      options: options,
+      value: value,
+      labelBuilder: (option) => '${option}s',
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _CompactDurationChips extends StatelessWidget {
+  final List<int> options;
+  final int value;
+  final String Function(int option) labelBuilder;
+  final ValueChanged<int> onChanged;
+
+  const _CompactDurationChips({
+    required this.options,
+    required this.value,
+    required this.labelBuilder,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < options.length; i++)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
+              child: _DurationChip(
+                label: labelBuilder(options[i]),
+                selected: options[i] == value,
+                onTap: () => onChanged(options[i]),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DurationChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DurationChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.accent : AppTheme.surfaceElevated,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppTheme.accent : AppTheme.border,
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.white : AppTheme.textSecondary,
+            fontWeight: FontWeight.w700,
+            fontSize: AppTheme.textLabel,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2178,11 +2241,13 @@ class _ExerciseImage extends StatelessWidget {
   final ExerciseMedia? media;
   final double height;
   final double? width;
+  final double blurSigma;
 
   const _ExerciseImage({
     required this.media,
     required this.height,
     this.width,
+    this.blurSigma = 0,
   });
 
   @override
@@ -2202,12 +2267,15 @@ class _ExerciseImage extends StatelessWidget {
       child: SizedBox(
         height: height,
         width: boxWidth,
-        child: ExerciseMediaWidget(
-          media: media,
-          fit: BoxFit.cover,
-          autoplayVideo: false,
-          loopVideo: false,
-          placeholder: placeholder,
+        child: AnimatedMediaBlur(
+          sigma: blurSigma,
+          child: ExerciseMediaWidget(
+            media: media,
+            fit: BoxFit.cover,
+            autoplayVideo: false,
+            loopVideo: false,
+            placeholder: placeholder,
+          ),
         ),
       ),
     );

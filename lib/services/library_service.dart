@@ -503,13 +503,14 @@ class WorkoutBuilderNotifier extends StateNotifier<List<CustomWorkoutExercise>> 
   void addExercise(LibraryExercise ex) {
     if (state.any((entry) => entry.exerciseId == ex.id)) return;
 
+    final isCircuit = ex.isTimeBased;
     final entry = CustomWorkoutExercise(
       exerciseId: ex.id,
       exerciseName: ex.name,
       thumbnailUrl: ex.media?.thumbnailUrl ?? ex.media?.gifUrl,
-      sets: 3,
-      reps: ex.isTimeBased ? null : 10,
-      seconds: ex.isTimeBased ? (ex.defaultSeconds ?? 30) : null,
+      sets: isCircuit ? kCircuitDefaultRounds : kStandardDefaultSets,
+      reps: isCircuit ? null : 10,
+      seconds: isCircuit ? (ex.defaultSeconds ?? 30) : null,
       restSeconds: 60,
       order: state.length,
       bodyParts: ex.muscleGroups,

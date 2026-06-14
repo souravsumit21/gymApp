@@ -3,6 +3,14 @@
 
 enum MediaType { gif, video, image }
 
+const kStandardDefaultSets = 3;
+const kCircuitDefaultRounds = 2;
+
+int defaultSetsOrRounds({int? seconds, int? reps}) {
+  if (seconds != null) return kCircuitDefaultRounds;
+  return kStandardDefaultSets;
+}
+
 class ExerciseMedia {
   final String exerciseId;
   final MediaType primaryType;
@@ -384,7 +392,11 @@ class CustomWorkoutExercise {
         exerciseId: m['exerciseId'],
         exerciseName: m['exerciseName'],
         thumbnailUrl: m['thumbnailUrl'],
-        sets: m['sets'] ?? 3,
+        sets: m['sets'] ??
+            defaultSetsOrRounds(
+              seconds: m['seconds'] as int?,
+              reps: m['reps'] as int?,
+            ),
         reps: m['reps'],
         seconds: m['seconds'],
         weightKg: (m['weightKg'] as num?)?.toDouble(),
@@ -467,7 +479,7 @@ class CustomWorkoutPreset {
         mode: m['mode'] ?? 'standard',
         warmupEnabled: m['warmupEnabled'] ?? true,
         shuffleEnabled: m['shuffleEnabled'] ?? false,
-        rounds: m['rounds'] ?? 3,
+        rounds: m['rounds'] ?? kCircuitDefaultRounds,
         getReadySeconds: m['getReadySeconds'] ?? 5,
         restBetweenSets: m['restBetweenSets'] ?? 60,
         restBetweenExercises: m['restBetweenExercises'] ?? 60,
@@ -518,7 +530,11 @@ class CustomWorkoutPresetExercise {
       CustomWorkoutPresetExercise(
         exerciseId: m['exerciseId'],
         order: m['order'] ?? 0,
-        sets: m['sets'] ?? 3,
+        sets: m['sets'] ??
+            defaultSetsOrRounds(
+              seconds: m['seconds'] as int?,
+              reps: m['reps'] as int?,
+            ),
         reps: m['reps'],
         seconds: m['seconds'],
         restBetweenSets: m['restBetweenSets'] ?? 60,

@@ -1128,13 +1128,14 @@ class _ReviewExerciseTile extends StatelessWidget {
           _ExerciseThumb(media: media, size: 52),
           const SizedBox(width: 12),
           CircleAvatar(
-            radius: 14,
+            radius: 10,
             backgroundColor: AppTheme.primary,
             child: Text(
               '${index + 1}',
               style: TextStyle(
                 color: AppTheme.background,
                 fontWeight: FontWeight.w800,
+                fontSize: AppTheme.textLabel,
               ),
             ),
           ),
@@ -1651,20 +1652,26 @@ class _ExerciseEditSheetState extends State<_ExerciseEditSheet> {
                 _ModeChip(
                   label: 'Standard',
                   selected: !_isCircuit,
-                  onTap: () => setState(() => _isCircuit = false),
+                  onTap: () => setState(() {
+                    _isCircuit = false;
+                    _sets = kStandardDefaultSets;
+                  }),
                 ),
                 const SizedBox(width: 8),
                 _ModeChip(
                   label: 'Circuit',
                   selected: _isCircuit,
-                  onTap: () => setState(() => _isCircuit = true),
+                  onTap: () => setState(() {
+                    _isCircuit = true;
+                    _sets = kCircuitDefaultRounds;
+                  }),
                 ),
               ],
             ),
             const SizedBox(height: 20),
 
             _StepperRow(
-              label: 'Sets',
+              label: _isCircuit ? 'Rounds' : 'Sets',
               value: _sets,
               min: 1,
               max: 10,
@@ -1675,7 +1682,7 @@ class _ExerciseEditSheetState extends State<_ExerciseEditSheet> {
 
             if (_isCircuit)
               _StepperRow(
-                label: 'Time (seconds)',
+                label: 'Exercise time',
                 value: _seconds,
                 min: 5,
                 max: 300,
@@ -1698,7 +1705,7 @@ class _ExerciseEditSheetState extends State<_ExerciseEditSheet> {
             const SizedBox(height: 14),
 
             _StepperRow(
-              label: 'Rest (seconds)',
+              label: 'Rest',
               value: _rest,
               min: 0,
               max: 300,

@@ -261,12 +261,8 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     }
 
     final exercises = _day!.exercises;
-    final library = ref.watch(exerciseLibraryMapProvider);
     final libEx = _currentLibraryEx;
     final ex = _currentExercise;
-    final nextExerciseName = _currentIndex < exercises.length - 1
-        ? library[exercises[_currentIndex + 1].exerciseId]?.name
-        : null;
 
     final progress = (_currentIndex + (_currentSet - 1) / (ex?.sets ?? 1)) /
         exercises.length;
@@ -290,10 +286,9 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                         ? _RestView(
                             secondsLeft: _restSecondsLeft,
                             onSkip: _skipRest,
-                            exerciseName: nextExerciseName ??
-                                libEx?.name ??
-                                'Rest',
-                            progressLabel: 'Rest',
+                            exerciseName: libEx?.name ?? 'Rest',
+                            media: libEx?.media,
+                            mediaBlurSigma: kRestPreviewBlurSigma,
                           )
                         : _ExerciseView(
                             exercise: libEx,
@@ -404,22 +399,26 @@ class _RestView extends StatelessWidget {
   final int secondsLeft;
   final VoidCallback onSkip;
   final String exerciseName;
-  final String progressLabel;
+  final ExerciseMedia? media;
+  final double mediaBlurSigma;
 
   const _RestView({
     required this.secondsLeft,
     required this.onSkip,
     required this.exerciseName,
-    required this.progressLabel,
+    this.media,
+    this.mediaBlurSigma = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     return MinimalExerciseSessionLayout(
-      progressLabel: progressLabel,
+      media: media,
+      progressLabel: '',
       exerciseName: exerciseName,
-      counterText: '$secondsLeft',
-      onTap: () {},
+      counterText: '${secondsLeft}s',
+      mediaBlurSigma: mediaBlurSigma,
+      isRestScreen: true,
       onAction: onSkip,
       actionTooltip: 'Skip rest',
     );

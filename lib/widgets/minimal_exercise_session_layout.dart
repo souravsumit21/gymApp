@@ -27,31 +27,38 @@ class WorkoutProgressBar extends StatelessWidget {
   }
 }
 
+/// Blur strength for next-exercise video previews shown during rest.
+const double kRestPreviewBlurSigma = 5;
+
 /// Minimal full-screen exercise session layout — video on top, counter below.
 class MinimalExerciseSessionLayout extends StatelessWidget {
   final ExerciseMedia? media;
   final String progressLabel;
   final String exerciseName;
-  final String counterText;
+  final String? counterText;
+  final double mediaBlurSigma;
   final VoidCallback? onTap;
   final VoidCallback onAction;
   final IconData actionIcon;
   final String actionTooltip;
   final Widget? footer;
   final bool showPauseHint;
+  final bool isRestScreen;
 
   const MinimalExerciseSessionLayout({
     super.key,
     this.media,
     required this.progressLabel,
     required this.exerciseName,
-    required this.counterText,
+    this.counterText,
+    this.mediaBlurSigma = 0,
     this.onTap,
     required this.onAction,
     this.actionIcon = Icons.skip_next_rounded,
     this.actionTooltip = 'Next',
     this.footer,
     this.showPauseHint = false,
+    this.isRestScreen = false,
   });
 
   @override
@@ -64,16 +71,19 @@ class MinimalExerciseSessionLayout extends StatelessWidget {
           children: [
             Expanded(
               flex: 11,
-              child: ColoredBox(
-                color: AppTheme.surfaceElevated,
-                child: media != null
-                    ? ExerciseMediaWidget(
-                        media: media,
-                        fit: BoxFit.cover,
-                        videoZoom: 1.12,
-                        placeholder: const _VideoPlaceholder(),
-                      )
-                    : const _VideoPlaceholder(),
+              child: AnimatedMediaBlur(
+                sigma: mediaBlurSigma,
+                child: ColoredBox(
+                  color: AppTheme.surfaceElevated,
+                  child: media != null
+                      ? ExerciseMediaWidget(
+                          media: media,
+                          fit: BoxFit.cover,
+                          videoZoom: 1.05,
+                          placeholder: const _VideoPlaceholder(),
+                        )
+                      : const _VideoPlaceholder(),
+                ),
               ),
             ),
             Expanded(
@@ -83,28 +93,51 @@ class MinimalExerciseSessionLayout extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      progressLabel,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      exerciseName,
-                      style: Theme.of(context).textTheme.displayMedium,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      counterText,
-                      style: AppTypography.statHero(),
-                      textAlign: TextAlign.center,
-                    ),
+                    if (isRestScreen) ...[
+                      Text(
+                        'Rest',
+                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Upcoming · $exerciseName',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ] else ...[
+                      Text(
+                        progressLabel,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        exerciseName,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    if (counterText != null && counterText!.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        counterText!,
+                        style: AppTypography.statHero(),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     if (showPauseHint) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -125,6 +158,13 @@ class MinimalExerciseSessionLayout extends StatelessWidget {
             ),
           ],
         ),
+        if (onTap != null)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: onTap,
+            ),
+          ),
         Positioned(
           right: 20,
           bottom: 28,
@@ -139,13 +179,6 @@ class MinimalExerciseSessionLayout extends StatelessWidget {
             child: Icon(actionIcon),
           ),
         ),
-        if (onTap != null)
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: onTap,
-            ),
-          ),
       ],
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -53,6 +55,75 @@ ExerciseMedia? resolveExerciseMedia({
         ? savedThumbnailUrl
         : null,
   );
+}
+
+/// Subtle blur for upcoming-exercise previews during rest; animates to sharp.
+class AnimatedMediaBlur extends StatefulWidget {
+  const AnimatedMediaBlur({
+    super.key,
+    required this.sigma,
+    required this.child,
+    this.duration = const Duration(milliseconds: 450),
+  });
+
+  final double sigma;
+  final Widget child;
+  final Duration duration;
+
+  @override
+  State<AnimatedMediaBlur> createState() => _AnimatedMediaBlurState();
+}
+
+class _AnimatedMediaBlurState extends State<AnimatedMediaBlur>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _sigmaAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.duration);
+    _sigmaAnimation = _tween(widget.sigma, widget.sigma);
+    _controller.value = 1;
+  }
+
+  Animation<double> _tween(double begin, double end) {
+    return Tween<double>(begin: begin, end: end).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedMediaBlur oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sigma == widget.sigma) return;
+    _sigmaAnimation = _tween(_sigmaAnimation.value, widget.sigma);
+    _controller
+      ..duration = widget.duration
+      ..forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _sigmaAnimation,
+      builder: (context, child) {
+        final sigma = _sigmaAnimation.value;
+        if (sigma < 0.5) return child!;
+        return ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
 }
 
 class ExerciseMediaWidget extends StatefulWidget {
