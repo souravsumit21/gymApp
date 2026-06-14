@@ -54,19 +54,14 @@ class WeeklyStreakCard extends StatelessWidget {
                   children: [
                     Text(
                       '${summary.streakWeeks}',
-                      style: const TextStyle(
-                        fontSize: 42,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.textPrimary,
-                        height: 1,
-                      ),
+                      style: AppTypography.stat(),
                     ),
-                    const Text(
+                    Text(
                       'week streak',
                       style: TextStyle(
                         color: AppTheme.textSecondary,
                         fontWeight: FontWeight.w700,
-                        fontSize: 15,
+                        fontSize: AppTheme.textBody,
                       ),
                     ),
                   ],
@@ -77,7 +72,7 @@ class WeeklyStreakCard extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'Goal: ${summary.weeklyGoalDays} workout days per week',
-            style: const TextStyle(color: AppTheme.textSecondary),
+            style: TextStyle(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 6),
           Text(
@@ -130,7 +125,7 @@ class _FreezeStatus extends StatelessWidget {
                 style: TextStyle(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: AppTheme.textCaption,
                 ),
               ),
             ),

@@ -5,7 +5,7 @@ import '../models/models.dart';
 import '../services/auth_service.dart';
 
 /// Keeps a single [GoRouter] instance alive while auth/profile changes
-/// re-run redirects — avoids remounting splash and replaying the intro video.
+/// re-run redirects — avoids remounting splash on every auth tick.
 class RouterRefresh extends ChangeNotifier {
   RouterRefresh(this._ref) {
     _ref.listen(authStateProvider, (_, next) {

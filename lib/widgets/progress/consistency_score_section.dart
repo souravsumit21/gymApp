@@ -66,7 +66,7 @@ class ConsistencyScoreSection extends StatelessWidget {
           month.weeksTotal == 0
               ? 'No complete weeks yet this month'
               : '$pct% — you hit ${month.weeksHit} of ${month.weeksTotal} weeks',
-          style: const TextStyle(
+          style: TextStyle(
             color: AppTheme.textSecondary,
             fontWeight: FontWeight.w600,
           ),
@@ -108,7 +108,7 @@ class _WeekHeatmap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (weeks.isEmpty) {
-      return const Text('No weeks in this month yet',
+      return Text('No weeks in this month yet',
           style: TextStyle(color: AppTheme.textMuted));
     }
 
@@ -159,9 +159,9 @@ class _WeekHeatmap extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.textMuted,
-                    fontSize: 10,
+                    fontSize: AppTheme.textCaption,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

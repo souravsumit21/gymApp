@@ -191,21 +191,30 @@ class Equipment extends Equatable {
 }
 
 final List<Equipment> allEquipment = [
-  // Bodyweight (always available)
-  const Equipment(id: 'none', name: 'No Equipment', icon: '🙌', category: 'bodyweight'),
+  // Bodyweight
+  const Equipment(id: 'none', name: 'Bodyweight', icon: '🙌', category: 'bodyweight'),
   const Equipment(id: 'pull_up_bar', name: 'Pull-Up Bar', icon: '🔩', category: 'bodyweight'),
   const Equipment(id: 'dip_bars', name: 'Dip Bars', icon: '🏗️', category: 'bodyweight'),
   const Equipment(id: 'gymnastic_rings', name: 'Gymnastic Rings', icon: '⭕', category: 'bodyweight'),
+  const Equipment(id: 'ab_wheel', name: 'Ab Wheel', icon: '🎡', category: 'bodyweight'),
   // Resistance
   const Equipment(id: 'resistance_bands', name: 'Resistance Bands', icon: '🔗', category: 'resistance'),
   const Equipment(id: 'trx', name: 'TRX / Suspension', icon: '🪢', category: 'resistance'),
   // Weights
   const Equipment(id: 'dumbbells', name: 'Dumbbells', icon: '🏋️', category: 'weights'),
   const Equipment(id: 'barbell', name: 'Barbell', icon: '🏋️‍♂️', category: 'weights'),
+  const Equipment(id: 'ez_bar', name: 'EZ Bar', icon: '🏋️', category: 'weights'),
   const Equipment(id: 'kettlebell', name: 'Kettlebell', icon: '⚫', category: 'weights'),
+  const Equipment(id: 'cable', name: 'Cable Machine', icon: '🎛️', category: 'weights'),
+  const Equipment(id: 'smith_machine', name: 'Smith Machine', icon: '🏗️', category: 'weights'),
+  const Equipment(id: 'machine', name: 'Gym Machine', icon: '⚙️', category: 'weights'),
   const Equipment(id: 'weight_bench', name: 'Bench', icon: '🛋️', category: 'weights'),
+  const Equipment(id: 'medicine_ball', name: 'Medicine Ball', icon: '🏐', category: 'weights'),
+  const Equipment(id: 'exercise_ball', name: 'Exercise Ball', icon: '🔵', category: 'bodyweight'),
+  const Equipment(id: 'bosu', name: 'Bosu Ball', icon: '🟠', category: 'bodyweight'),
   // Cardio
   const Equipment(id: 'jump_rope', name: 'Jump Rope', icon: '🪢', category: 'cardio'),
+  const Equipment(id: 'battle_ropes', name: 'Battle Ropes', icon: '🌊', category: 'cardio'),
   const Equipment(id: 'box', name: 'Plyo Box', icon: '📦', category: 'cardio'),
   const Equipment(id: 'treadmill', name: 'Treadmill', icon: '🏃', category: 'cardio'),
   const Equipment(id: 'stationary_bike', name: 'Stationary Bike', icon: '🚴', category: 'cardio'),

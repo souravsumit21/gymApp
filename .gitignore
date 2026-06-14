@@ -33,6 +33,7 @@ migrate_working_dir/
 /build/
 /coverage/
 .env
+.env.local
 service-account.json
 
 # Symbolication related
@@ -45,3 +46,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+/exercise_videos
+exercise_videos
+/exercise_videos/*
+scripts/output/

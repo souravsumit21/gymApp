@@ -1,102 +1,134 @@
-import 'dart:io' show Platform;
-
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'auth_service.dart';
+import '../config/revenue_cat_config.dart';
+import '../models/premium_status.dart';
 
-const _revenueCatApiKeyAndroid = 'YOUR_REVENUECAT_ANDROID_KEY';
-const _revenueCatApiKeyIOS = 'YOUR_REVENUECAT_IOS_KEY';
-
-/// Product identifiers — must match App Store / Play Store
-const kMonthlyEntitlement = 'forge_fit_premium';
-const kMonthlyProductId = 'forge_fit_monthly';
-const kAnnualProductId = 'forge_fit_annual';
-
+/// Thin wrapper around the RevenueCat SDK.
 class PurchaseService {
-  static bool _isConfigured = false;
+  bool _isConfigured = false;
+  String? _activeUserId;
+  CustomerInfoUpdateListener? _customerInfoListener;
 
-  static bool get isConfigured => _isConfigured;
+  bool get isConfigured => _isConfigured;
 
-  static bool get isAvailable {
-    final key =
-        Platform.isIOS ? _revenueCatApiKeyIOS : _revenueCatApiKeyAndroid;
-    return key.isNotEmpty && !key.startsWith('YOUR_');
-  }
-
-  static Future<void> initialize(String userId) async {
-    if (!isAvailable || userId.isEmpty) return;
+  Future<void> configure(String userId) async {
+    if (!RevenueCatConfig.hasApiKeys || userId.isEmpty) {
+      _isConfigured = false;
+      return;
+    }
 
     try {
       if (_isConfigured) {
-        await Purchases.logIn(userId);
+        if (_activeUserId != userId) {
+          await Purchases.logIn(userId);
+          _activeUserId = userId;
+        }
         return;
       }
 
-      await Purchases.setLogLevel(LogLevel.debug);
-      final config = PurchasesConfiguration(
-        Platform.isIOS ? _revenueCatApiKeyIOS : _revenueCatApiKeyAndroid,
-      );
+      if (RevenueCatConfig.isDebugMode) {
+        await Purchases.setLogLevel(LogLevel.debug);
+      }
+
+      final config = PurchasesConfiguration(RevenueCatConfig.platformApiKey);
       await Purchases.configure(config);
       await Purchases.logIn(userId);
+
       _isConfigured = true;
-    } catch (_) {
+      _activeUserId = userId;
+    } catch (error, stackTrace) {
       _isConfigured = false;
+      debugPrint('RevenueCat configure failed: $error');
+      debugPrint('$stackTrace');
     }
   }
 
-  Future<bool> get isPremium async {
-    if (!_isConfigured) return false;
+  Future<void> logOut() async {
+    _removeCustomerInfoListener();
+    _isConfigured = false;
+    _activeUserId = null;
+
+    if (!RevenueCatConfig.hasApiKeys) return;
+
     try {
-      final info = await Purchases.getCustomerInfo();
-      return info.entitlements.active.containsKey(kMonthlyEntitlement);
-    } catch (_) {
-      return false;
+      await Purchases.logOut();
+    } catch (error) {
+      debugPrint('RevenueCat logOut failed: $error');
     }
   }
 
-  /// Returns available offerings
+  void listenToCustomerInfo(void Function(CustomerInfo info) onUpdate) {
+    _removeCustomerInfoListener();
+    _customerInfoListener = onUpdate;
+    Purchases.addCustomerInfoUpdateListener(onUpdate);
+  }
+
+  void _removeCustomerInfoListener() {
+    final listener = _customerInfoListener;
+    if (listener != null) {
+      Purchases.removeCustomerInfoUpdateListener(listener);
+      _customerInfoListener = null;
+    }
+  }
+
+  void dispose() => _removeCustomerInfoListener();
+
+  bool hasPremiumEntitlement(CustomerInfo info) {
+    return info.entitlements.active
+        .containsKey(RevenueCatConfig.entitlementId);
+  }
+
+  Future<CustomerInfo> getCustomerInfo() async {
+    _ensureConfigured();
+    return Purchases.getCustomerInfo();
+  }
+
   Future<Offerings?> getOfferings() async {
     if (!_isConfigured) return null;
     try {
       return await Purchases.getOfferings();
-    } catch (_) {
+    } catch (error) {
+      debugPrint('RevenueCat getOfferings failed: $error');
       return null;
     }
   }
 
-  /// Purchase a specific package
-  Future<bool> purchase(Package package) async {
-    if (!_isConfigured) return false;
+  Future<CustomerInfo> purchase(Package package) async {
+    _ensureConfigured();
     try {
       final result = await Purchases.purchasePackage(package);
-      return result.customerInfo.entitlements.active
-          .containsKey(kMonthlyEntitlement);
-    } on PurchasesErrorCode catch (e) {
-      if (e == PurchasesErrorCode.purchaseCancelledError) return false;
-      rethrow;
+      return result.customerInfo;
+    } on PlatformException catch (error) {
+      throw _mapPlatformException(error);
     }
   }
 
-  /// Restore purchases
-  Future<bool> restore() async {
-    if (!_isConfigured) return false;
+  Future<CustomerInfo> restore() async {
+    _ensureConfigured();
     try {
-      final info = await Purchases.restorePurchases();
-      return info.entitlements.active.containsKey(kMonthlyEntitlement);
-    } catch (_) {
-      return false;
+      return await Purchases.restorePurchases();
+    } on PlatformException catch (error) {
+      throw _mapPlatformException(error);
     }
+  }
+
+  void _ensureConfigured() {
+    if (!_isConfigured) {
+      throw PurchaseException(
+        RevenueCatConfig.hasApiKeys
+            ? 'RevenueCat is not initialized yet.'
+            : 'RevenueCat API keys are not configured.',
+      );
+    }
+  }
+
+  PurchaseException _mapPlatformException(PlatformException error) {
+    final code = PurchasesErrorHelper.getErrorCode(error);
+    return PurchaseException(
+      error.message ?? 'Purchase failed.',
+      code: code,
+    );
   }
 }
-
-final purchaseServiceProvider =
-    Provider<PurchaseService>((ref) => PurchaseService());
-
-final premiumStatusProvider = FutureProvider<bool>((ref) async {
-  final user = ref.watch(authStateProvider).valueOrNull;
-  if (user == null) return false;
-
-  await PurchaseService.initialize(user.uid);
-  return ref.watch(purchaseServiceProvider).isPremium;
-});

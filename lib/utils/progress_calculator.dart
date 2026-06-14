@@ -1,35 +1,8 @@
 import '../models/models.dart';
 import '../models/progress_models.dart';
+import 'muscle_filter.dart';
 
-const _muscleAliases = {
-  'pectorals': 'chest',
-  'pecs': 'chest',
-  'lats': 'back',
-  'traps': 'back',
-  'trapezius': 'back',
-  'delts': 'shoulders',
-  'deltoids': 'shoulders',
-  'abs': 'core',
-  'abdominals': 'core',
-  'obliques': 'core',
-  'quadriceps': 'quads',
-  'hams': 'hamstrings',
-  'gluteus': 'glutes',
-  'forearm': 'forearms',
-  'bicep': 'biceps',
-  'tricep': 'triceps',
-};
-
-String? normalizeBodyPart(String raw) {
-  final value = raw.trim().toLowerCase().replaceAll(' ', '_');
-  if (value.isEmpty) return null;
-  if (kTrackedBodyParts.any((p) => p.$1 == value)) return value;
-  return _muscleAliases[value];
-}
-
-Set<String> normalizeBodyParts(Iterable<String> raw) {
-  return raw.map(normalizeBodyPart).whereType<String>().toSet();
-}
+export 'muscle_filter.dart' show normalizeBodyPart, normalizeBodyParts;
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 

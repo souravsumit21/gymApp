@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'services/auth_service.dart';
-import 'services/purchase_service.dart';
+import 'providers/premium_providers.dart';
 import 'theme/app_theme.dart';
 import 'utils/deep_link_handler.dart';
 import 'utils/router.dart';
@@ -32,12 +31,8 @@ class _ReppUpAppState extends ConsumerState<ReppUpApp> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(authStateProvider, (_, next) {
-      final uid = next.valueOrNull?.uid;
-      if (uid != null) {
-        PurchaseService.initialize(uid);
-      }
-    });
+    // Bootstrap RevenueCat when auth state changes.
+    ref.watch(premiumNotifierProvider);
 
     final router = ref.watch(routerProvider);
     _deepLinkHandler.startListening(router);

@@ -1,33 +1,141 @@
 // lib/services/library_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../models/exercise_media.dart';
 import '../data/exercise_library_data.dart';
+import '../utils/equipment_filter.dart';
+import '../utils/muscle_filter.dart';
 
 const _uuid = Uuid();
 
+class LibraryFetchResult {
+  final List<LibraryExercise> exercises;
+  final bool fromRemote;
+  final String? errorMessage;
+
+  const LibraryFetchResult({
+    required this.exercises,
+    required this.fromRemote,
+    this.errorMessage,
+  });
+}
+
+class ExerciseLibraryStatus {
+  final bool isLoading;
+  final String? errorMessage;
+  final bool fromRemote;
+
+  const ExerciseLibraryStatus({
+    this.isLoading = false,
+    this.errorMessage,
+    this.fromRemote = false,
+  });
+}
+
 class LibraryService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  List<LibraryExercise>? _libraryCache;
+  String? _lastFetchError;
+  bool _lastFetchFromRemote = false;
+
+  /// Bundled seed data — always available offline.
+  List<LibraryExercise> get bundledExerciseLibrary => kExerciseLibrary;
+
+  bool get hasCachedLibrary => _libraryCache != null;
+  String? get lastFetchError => _lastFetchError;
+  bool get lastFetchFromRemote => _lastFetchFromRemote;
+
+  /// Cache after first remote fetch, otherwise bundled seed.
+  List<LibraryExercise> get immediateExerciseLibrary =>
+      _libraryCache ?? kExerciseLibrary;
 
   // ── Exercise Library ─────────────────────────────────────
   Future<List<LibraryExercise>> getExerciseLibrary() async {
+    if (_libraryCache != null) return _libraryCache!;
+    final result = await refreshExerciseLibraryFromRemote();
+    return result.exercises;
+  }
+
+  /// Fetches from Firestore (or bundled fallback) and updates the memory cache.
+  Future<LibraryFetchResult> refreshExerciseLibraryFromRemote({
+    bool force = false,
+  }) async {
+    if (!force && _libraryCache != null) {
+      return LibraryFetchResult(
+        exercises: _libraryCache!,
+        fromRemote: _lastFetchFromRemote,
+        errorMessage: _lastFetchError,
+      );
+    }
+
+    final result = await _fetchExerciseLibraryFromRemote();
+    _libraryCache = result.exercises;
+    _lastFetchFromRemote = result.fromRemote;
+    _lastFetchError = result.errorMessage;
+    return result;
+  }
+
+  Future<LibraryFetchResult> _fetchExerciseLibraryFromRemote() async {
     try {
       final snap = await _db
           .collection('exercise_library')
           .orderBy('name')
-          .limit(1000)
+          .limit(2500)
           .get();
-      final firestoreExercises = snap.docs
-          .map((doc) => LibraryExercise.fromMap(doc.data()))
-          .where((exercise) => exercise.id.isNotEmpty && exercise.name.isNotEmpty)
-          .toList();
-      if (firestoreExercises.isNotEmpty) return firestoreExercises;
-    } catch (_) {
-      // Local starter data keeps custom workout creation usable offline or
-      // before Firestore is seeded.
+      final firestoreExercises = <LibraryExercise>[];
+      var skipped = 0;
+      for (final doc in snap.docs) {
+        try {
+          final exercise = LibraryExercise.fromMap(
+            doc.data(),
+            docId: doc.id,
+          );
+          if (exercise.id.isNotEmpty && exercise.name.isNotEmpty) {
+            firestoreExercises.add(exercise);
+          } else {
+            skipped++;
+          }
+        } catch (error) {
+          skipped++;
+          debugPrint('LibraryService: skipped exercise ${doc.id}: $error');
+        }
+      }
+      if (skipped > 0) {
+        debugPrint('LibraryService: skipped $skipped malformed exercise docs');
+      }
+      if (firestoreExercises.isNotEmpty) {
+        debugPrint(
+          'LibraryService: loaded ${firestoreExercises.length} exercises from Firestore',
+        );
+        return LibraryFetchResult(
+          exercises: firestoreExercises,
+          fromRemote: true,
+        );
+      }
+      debugPrint(
+        'LibraryService: Firestore returned 0 exercises — using bundled fallback',
+      );
+      return LibraryFetchResult(
+        exercises: kExerciseLibrary,
+        fromRemote: false,
+        errorMessage:
+            'Could not load the full exercise library. Showing offline exercises only.',
+      );
+    } catch (error, stack) {
+      debugPrint(
+        'LibraryService: Firestore fetch failed ($error) — using bundled fallback. '
+        'Sign in if exercise_library requires auth.',
+      );
+      debugPrintStack(stackTrace: stack);
+      return LibraryFetchResult(
+        exercises: kExerciseLibrary,
+        fromRemote: false,
+        errorMessage:
+            'Could not load exercises. Check your connection and try again.',
+      );
     }
-    return kExerciseLibrary;
   }
 
   /// Returns filtered exercises based on search, muscle, category, equipment
@@ -68,9 +176,11 @@ class LibraryService {
     }
 
     if (muscle != null && muscle != 'all') {
-      results = results.where((e) =>
-        e.muscleGroups.contains(muscle) || e.secondaryMuscles.contains(muscle)
-      ).toList();
+      results = results.where((e) => exerciseMatchesMuscleFilter(
+        e.muscleGroups,
+        e.secondaryMuscles,
+        muscle,
+      )).toList();
     }
 
     if (category != null && category != 'all') {
@@ -79,7 +189,7 @@ class LibraryService {
 
     if (equipment != null && equipment.isNotEmpty) {
       results = results.where((e) =>
-        e.requiredEquipment.every((eq) => eq == 'none' || equipment.contains(eq))
+        exerciseMatchesSelectedEquipment(e.requiredEquipment, equipment)
       ).toList();
     }
 
@@ -277,7 +387,10 @@ class LibraryFilterNotifier extends StateNotifier<LibraryFilterState> {
 }
 
 // ── Providers ─────────────────────────────────────────────
-final libraryServiceProvider = Provider<LibraryService>((ref) => LibraryService());
+final libraryServiceProvider = Provider<LibraryService>((ref) {
+  ref.keepAlive();
+  return LibraryService();
+});
 
 final libraryFilterProvider =
     StateNotifierProvider<LibraryFilterNotifier, LibraryFilterState>(
@@ -296,15 +409,70 @@ final filteredExercisesProvider = Provider<List<LibraryExercise>>((ref) {
   );
 });
 
-final exerciseLibraryProvider = FutureProvider<List<LibraryExercise>>((ref) {
-  return ref.watch(libraryServiceProvider).getExerciseLibrary();
+/// Loads the remote library on first open; uses cache afterward.
+class ExerciseLibraryNotifier extends AsyncNotifier<List<LibraryExercise>> {
+  @override
+  Future<List<LibraryExercise>> build() async {
+    ref.keepAlive();
+    final service = ref.read(libraryServiceProvider);
+
+    if (service.hasCachedLibrary) {
+      return service.immediateExerciseLibrary;
+    }
+
+    final result = await service.refreshExerciseLibraryFromRemote();
+    return result.exercises;
+  }
+
+  Future<void> retry() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final service = ref.read(libraryServiceProvider);
+      final result = await service.refreshExerciseLibraryFromRemote(force: true);
+      return result.exercises;
+    });
+  }
+}
+
+final exerciseLibraryProvider =
+    AsyncNotifierProvider<ExerciseLibraryNotifier, List<LibraryExercise>>(
+  ExerciseLibraryNotifier.new,
+);
+
+final exerciseLibraryStatusProvider = Provider<ExerciseLibraryStatus>((ref) {
+  final libraryAsync = ref.watch(exerciseLibraryProvider);
+  final service = ref.watch(libraryServiceProvider);
+
+  if (libraryAsync.isLoading) {
+    return const ExerciseLibraryStatus(isLoading: true);
+  }
+
+  if (libraryAsync.hasError) {
+    return ExerciseLibraryStatus(
+      errorMessage:
+          'Could not load exercises. Check your connection and try again.',
+    );
+  }
+
+  return ExerciseLibraryStatus(
+    errorMessage: service.lastFetchError,
+    fromRemote: service.lastFetchFromRemote,
+  );
+});
+
+final exerciseLibraryMapProvider = Provider<Map<String, LibraryExercise>>((ref) {
+  final service = ref.watch(libraryServiceProvider);
+  final exercises = ref.watch(exerciseLibraryProvider).valueOrNull ??
+      service.immediateExerciseLibrary;
+  return {for (final exercise in exercises) exercise.id: exercise};
 });
 
 final filteredExerciseLibraryProvider =
-    FutureProvider<List<LibraryExercise>>((ref) async {
+    Provider<List<LibraryExercise>>((ref) {
   final filter = ref.watch(libraryFilterProvider);
   final service = ref.watch(libraryServiceProvider);
-  final exercises = await ref.watch(exerciseLibraryProvider.future);
+  final exercises = ref.watch(exerciseLibraryProvider).valueOrNull ??
+      service.immediateExerciseLibrary;
   return service.filterExerciseList(
     exercises,
     query: filter.query,
@@ -333,10 +501,12 @@ class WorkoutBuilderNotifier extends StateNotifier<List<CustomWorkoutExercise>> 
   WorkoutBuilderNotifier() : super([]);
 
   void addExercise(LibraryExercise ex) {
+    if (state.any((entry) => entry.exerciseId == ex.id)) return;
+
     final entry = CustomWorkoutExercise(
       exerciseId: ex.id,
       exerciseName: ex.name,
-      thumbnailUrl: ex.media?.displayUrl,
+      thumbnailUrl: ex.media?.thumbnailUrl ?? ex.media?.gifUrl,
       sets: 3,
       reps: ex.isTimeBased ? null : 10,
       seconds: ex.isTimeBased ? (ex.defaultSeconds ?? 30) : null,
@@ -346,6 +516,15 @@ class WorkoutBuilderNotifier extends StateNotifier<List<CustomWorkoutExercise>> 
       equipment: ex.requiredEquipment,
     );
     state = [...state, entry];
+  }
+
+  void toggleExercise(LibraryExercise ex) {
+    final index = state.indexWhere((entry) => entry.exerciseId == ex.id);
+    if (index >= 0) {
+      removeAt(index);
+    } else {
+      addExercise(ex);
+    }
   }
 
   void removeAt(int index) {
@@ -369,6 +548,10 @@ class WorkoutBuilderNotifier extends StateNotifier<List<CustomWorkoutExercise>> 
   }
 
   void clear() => state = [];
+
+  void loadExercises(List<CustomWorkoutExercise> exercises) {
+    state = [...exercises]..sort((a, b) => a.order.compareTo(b.order));
+  }
 }
 
 final workoutBuilderProvider =

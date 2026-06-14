@@ -4,7 +4,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/open_web_page.dart';
@@ -123,34 +122,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   iconAsset: _LoginIcons.dumbbell,
                   text: 'Your equipment. Your exercises. Your workout.',
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
                 _FeatureBullet(
                   delay: 280,
                   iconAsset: _LoginIcons.chart,
                   text: 'Log every rep and track your progress',
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
                 _FeatureBullet(
                   delay: 360,
                   iconAsset: _LoginIcons.community,
                   text: 'Share and discover workouts with the community',
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
                 _FeatureBullet(
                   delay: 440,
                   iconAsset: _LoginIcons.flame,
-                  iconSize: 26,
                   text: 'Build streaks that keep you coming back',
                 ),
                 const Spacer(),
                 Text(
                   'Sign in to get started',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
-                  ),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontSize: AppTheme.textBody,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
                 ).animate().fadeIn(delay: 500.ms, duration: 450.ms),
                 const SizedBox(height: 16),
                 if (_error != null) ...[
@@ -175,10 +173,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Expanded(
                           child: Text(
                             _error!,
-                            style: GoogleFonts.onest(
-                              color: AppTheme.accent,
-                              fontSize: 13,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.accent,
+                                  fontSize: AppTheme.textCaption,
+                                ),
                           ),
                         ),
                       ],
@@ -195,12 +193,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                 Text.rich(
                   TextSpan(
-                    style: GoogleFonts.onest(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: _termsGray,
-                      height: 1.4,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: AppTheme.textCaption,
+                          color: _termsGray,
+                          height: 1.4,
+                        ),
                     children: [
                       const TextSpan(
                         text: 'By continuing, you agree to our ',
@@ -272,7 +269,7 @@ class _FeatureBullet extends StatelessWidget {
     required this.iconAsset,
     required this.text,
     required this.delay,
-    this.iconSize = 22,
+    this.iconSize = 26,
   });
 
   final String iconAsset;
@@ -286,8 +283,8 @@ class _FeatureBullet extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 28,
-          height: 28,
+          width: 34,
+          height: 34,
           child: Center(
             child: SvgPicture.string(
               iconAsset,
@@ -298,18 +295,17 @@ class _FeatureBullet extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 14),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.only(top: 3),
+            padding: const EdgeInsets.only(top: 4),
             child: Text(
               text,
-              style: GoogleFonts.onest(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w400,
-                color: _bodyGray,
-                height: 1.5,
-              ),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: AppTheme.textBody,
+                    color: _bodyGray,
+                    height: 1.45,
+                  ),
             ),
           ),
         ),
@@ -364,22 +360,22 @@ class _GoogleSignInButton extends StatelessWidget {
                       alignment: Alignment.center,
                       child: Text(
                         'G',
-                        style: GoogleFonts.onest(
-                          color: const Color(0xFF4285F4),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          height: 1,
-                        ),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: const Color(0xFF4285F4),
+                              fontWeight: FontWeight.w700,
+                              fontSize: AppTheme.textLabel,
+                              height: 1,
+                            ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'Continue with Google',
-                      style: GoogleFonts.onest(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: _ink,
-                      ),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontSize: AppTheme.textBody,
+                            fontWeight: FontWeight.w500,
+                            color: _ink,
+                          ),
                     ),
                   ],
                 ),

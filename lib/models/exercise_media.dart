@@ -44,9 +44,20 @@ class ExerciseMedia {
     'videoDurationSeconds': videoDuration?.inSeconds,
   };
 
-  factory ExerciseMedia.fromMap(Map<String, dynamic> m) => ExerciseMedia(
-    exerciseId: m['exerciseId'],
-    primaryType: MediaType.values.byName(m['primaryType'] ?? 'image'),
+  static MediaType _parseMediaType(dynamic value) {
+    final raw = value?.toString().toLowerCase();
+    for (final type in MediaType.values) {
+      if (type.name == raw) return type;
+    }
+    return MediaType.image;
+  }
+
+  factory ExerciseMedia.fromMap(
+    Map<String, dynamic> m, {
+    String fallbackExerciseId = '',
+  }) => ExerciseMedia(
+    exerciseId: (m['exerciseId'] ?? m['id'] ?? fallbackExerciseId).toString(),
+    primaryType: _parseMediaType(m['primaryType']),
     gifUrl: m['gifUrl'],
     videoUrl: m['videoUrl'],
     thumbnailUrl: m['thumbnailUrl'] ?? m['imageUrl'],
@@ -134,26 +145,53 @@ class LibraryExercise {
     'mediaItems': mediaItems.map((m) => m.toMap()).toList(),
   };
 
-  factory LibraryExercise.fromMap(Map<String, dynamic> m) {
-    final mediaItems = (m['mediaItems'] as List? ?? [])
-        .map((item) => ExerciseMedia.fromMap(Map<String, dynamic>.from(item)))
-        .toList();
+  factory LibraryExercise.fromMap(
+    Map<String, dynamic> m, {
+    String? docId,
+  }) {
+    final id = (m['id'] ?? m['slug'] ?? docId ?? '').toString();
+    final name = (m['name'] ?? '').toString();
+
+    final mediaItems = <ExerciseMedia>[];
+    for (final item in m['mediaItems'] as List? ?? []) {
+      if (item is! Map) continue;
+      try {
+        mediaItems.add(
+          ExerciseMedia.fromMap(
+            Map<String, dynamic>.from(item),
+            fallbackExerciseId: id,
+          ),
+        );
+      } catch (_) {
+        // Skip malformed media entries.
+      }
+    }
+
     final activeMedia = mediaItems.where((item) => item.status == 'active');
-    final embeddedMedia = m['media'] != null
-        ? ExerciseMedia.fromMap(Map<String, dynamic>.from(m['media']))
-        : activeMedia.isNotEmpty
-            ? activeMedia.first
-            : mediaItems.isNotEmpty
-                ? mediaItems.first
-                : null;
+    ExerciseMedia? embeddedMedia;
+    if (m['media'] is Map) {
+      try {
+        embeddedMedia = ExerciseMedia.fromMap(
+          Map<String, dynamic>.from(m['media']),
+          fallbackExerciseId: id,
+        );
+      } catch (_) {
+        embeddedMedia = null;
+      }
+    } else if (activeMedia.isNotEmpty) {
+      embeddedMedia = activeMedia.first;
+    } else if (mediaItems.isNotEmpty) {
+      embeddedMedia = mediaItems.first;
+    }
+
     final instructionsValue = m['instructions'];
     final instructions = instructionsValue is List
         ? instructionsValue.map((item) => item.toString()).join('\n')
         : instructionsValue?.toString() ?? '';
 
     return LibraryExercise(
-      id: m['id'],
-      name: m['name'],
+      id: id,
+      name: name,
       description: m['description'] ?? m['overview'] ?? '',
       instructions: instructions,
       tips: List<String>.from(m['tips'] ?? m['exerciseTips'] ?? []),

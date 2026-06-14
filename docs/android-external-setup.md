@@ -4,7 +4,7 @@ This file tracks Android setup that is already complete and the external service
 
 ## Completed Android Setup
 
-- Firebase project created for Forge Fit.
+- Firebase project created for Repp Up.
 - Android Firebase app registered with package name `com.forgefit.forge_fit`.
 - Google Sign-In provider enabled in Firebase Authentication.
 - Debug SHA fingerprints added to the Firebase Android app.
@@ -40,10 +40,10 @@ service cloud.firestore {
 ### RevenueCat
 
 - Create products:
-  - `forge_fit_monthly`
-  - `forge_fit_annual`
+  - `repp_up_monthly`
+  - `repp_up_annual`
 - Create entitlement:
-  - `forge_fit_premium`
+  - `repp_up_premium`
 - Add Android RevenueCat API key to the app config before enabling paid flows.
 - Verify offerings, purchase, restore, and entitlement status on Android.
 

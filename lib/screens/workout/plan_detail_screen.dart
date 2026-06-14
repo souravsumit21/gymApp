@@ -71,10 +71,10 @@ class _PlanDetailContent extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppTheme.accentYellow.withOpacity(0.3)),
                   ),
-                  child: const Text('AI',
+                  child: Text('AI',
                       style: TextStyle(
                         color: AppTheme.accentYellow,
-                        fontSize: 11,
+                        fontSize: AppTheme.textLabel,
                         fontWeight: FontWeight.w800,
                       )),
                 ),
@@ -134,7 +134,7 @@ class _DayCard extends StatelessWidget {
                 day.targetBodyPart != null
                     ? (kMuscleEmoji[day.targetBodyPart] ?? '💪')
                     : '📅',
-                style: const TextStyle(fontSize: 22),
+                style: const TextStyle(fontSize: 19),
               ),
             ),
           ),

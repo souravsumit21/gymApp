@@ -14,12 +14,14 @@ class ProgressService {
       _db.collection('users').doc(userId).collection('progress_meta').doc('state');
 
   Stream<ProgressMeta> watchProgressMeta(String userId) {
+    if (userId.isEmpty) return Stream.value(const ProgressMeta());
     return _metaRef(userId).snapshots().map(
           (doc) => ProgressMeta.fromMap(doc.data()),
         );
   }
 
   Future<ProgressMeta> getProgressMeta(String userId) async {
+    if (userId.isEmpty) return const ProgressMeta();
     final doc = await _metaRef(userId).get();
     return ProgressMeta.fromMap(doc.data());
   }
@@ -111,21 +113,40 @@ final progressMetaProvider = StreamProvider.family<ProgressMeta, String>(
 );
 
 final progressSnapshotProvider =
-    Provider.family<ProgressSnapshot?, ProgressSnapshotRequest>(
+    Provider.family<AsyncValue<ProgressSnapshot>, ProgressSnapshotRequest>(
   (ref, request) {
+    if (request.userId.isEmpty) {
+      return AsyncValue.data(
+        ref.read(progressServiceProvider).buildSnapshot(
+              sessions: const [],
+              profile: null,
+              meta: const ProgressMeta(),
+              selectedMonth: request.selectedMonth,
+            ),
+      );
+    }
+
     final sessions = ref.watch(sessionsStreamProvider(request.userId));
     final meta = ref.watch(progressMetaProvider(request.userId));
     final profile = ref.watch(userProfileProvider(request.userId));
 
-    if (sessions.isLoading || meta.isLoading) return null;
-    if (sessions.hasError || meta.hasError) return null;
+    if (sessions.isLoading || meta.isLoading) {
+      return const AsyncValue.loading();
+    }
 
-    return ref.watch(progressServiceProvider).buildSnapshot(
-          sessions: sessions.valueOrNull ?? [],
-          profile: profile.valueOrNull,
-          meta: meta.valueOrNull ?? const ProgressMeta(),
-          selectedMonth: request.selectedMonth,
-        );
+    final sessionList =
+        sessions.hasError ? <WorkoutSession>[] : (sessions.valueOrNull ?? []);
+    final metaValue =
+        meta.hasError ? const ProgressMeta() : (meta.valueOrNull ?? const ProgressMeta());
+
+    return AsyncValue.data(
+      ref.read(progressServiceProvider).buildSnapshot(
+            sessions: sessionList,
+            profile: profile.valueOrNull,
+            meta: metaValue,
+            selectedMonth: request.selectedMonth,
+          ),
+    );
   },
 );
 

@@ -1,4 +1,4 @@
-# 🏋️ Forge Fit — Flutter Home Workout App
+# 🏋️ Repp Up — Flutter Home Workout App
 
 A full-stack Flutter app for iOS & Android with Google auth, AI-generated workout plans, 
 an exercise library with GIF previews, paywall, and progress tracking.
@@ -120,9 +120,9 @@ In `ios/Runner/Info.plist`, add the reversed client ID from `GoogleService-Info.
 
 1. Create an account at https://app.revenuecat.com
 2. Create products in App Store Connect + Google Play Console:
-   - `forge_fit_monthly` — monthly subscription
-   - `forge_fit_annual` — annual subscription
-3. Create an Entitlement: `forge_fit_premium`
+   - `repp_up_monthly` — monthly subscription
+   - `repp_up_annual` — annual subscription
+3. Create an Entitlement: `repp_up_premium`
 4. Replace keys in `lib/services/purchase_service.dart`:
 ```dart
 const _revenueCatApiKeyAndroid = 'YOUR_ANDROID_KEY';
@@ -217,7 +217,7 @@ Plan → Day → Active Workout
 
 ## Customisation Checklist
 
-- [ ] Replace `FORGE FIT` branding in `app_theme.dart` and `login_screen.dart`
+- [x] Repp Up branding in `app_theme.dart` and `login_screen.dart`
 - [ ] Add more exercises to `exercise_library_data.dart`
 - [ ] Upload exercise GIFs to Firebase Storage and update URLs
 - [ ] Set RevenueCat product IDs and entitlement names

@@ -226,7 +226,7 @@ class _CreatePlanScreenState extends ConsumerState<CreatePlanScreen> {
                   border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
                 ),
                 child: Text(_error!,
-                    style: const TextStyle(color: AppTheme.accent, fontSize: 13)),
+                    style: TextStyle(color: AppTheme.accent, fontSize: AppTheme.textCaption)),
               ),
 
             // Generate Button
@@ -270,7 +270,7 @@ class _SectionLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
         color: AppTheme.textSecondary,
         letterSpacing: 1,
-        fontSize: 11,
+        fontSize: AppTheme.textLabel,
         fontWeight: FontWeight.w700,
       ),
     );
@@ -338,7 +338,7 @@ class _ToggleOption extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: selected ? AppTheme.background : AppTheme.textSecondary,
-              fontSize: 13,
+              fontSize: AppTheme.textCaption,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -369,7 +369,7 @@ class _AIToggle extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text('🤖', style: const TextStyle(fontSize: 24)),
+          Text('🤖', style: TextStyle(fontSize: 21)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -443,7 +443,7 @@ class _BodyPartSelector extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: AppTheme.textCaption,
                   fontWeight: FontWeight.w600,
                   color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
                 ),
@@ -489,15 +489,15 @@ class _WeeklyScheduleBuilder extends StatelessWidget {
               Expanded(
                 child: DropdownButton<String>(
                   value: entry.value,
-                  hint: const Text('Rest Day',
+                  hint: Text('Rest Day',
                       style: TextStyle(
                         color: AppTheme.textMuted,
-                        fontSize: 13,
+                        fontSize: AppTheme.textCaption,
                       )),
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
                   dropdownColor: AppTheme.surfaceElevated,
-                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                  style: TextStyle(color: AppTheme.textPrimary, fontSize: AppTheme.textLabel),
                   items: [
                     const DropdownMenuItem(
                       value: null,

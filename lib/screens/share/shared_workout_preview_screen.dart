@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,9 +6,12 @@ import '../../models/exercise_media.dart';
 import '../../models/share_models.dart';
 import '../../services/auth_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/library_service.dart';
 import '../../services/share_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/workout_share_utils.dart';
+import '../../utils/back_navigation.dart';
+import '../../widgets/exercise_media_widget.dart';
 class SharedWorkoutPreviewScreen extends ConsumerStatefulWidget {
   final String shareId;
   final bool isExternal;
@@ -131,7 +133,7 @@ class _SharedWorkoutPreviewScreenState
             child: Text(
               _error ?? 'Workout not found',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.textSecondary),
+              style: TextStyle(color: AppTheme.textSecondary),
             ),
           ),
         ),
@@ -139,8 +141,15 @@ class _SharedWorkoutPreviewScreenState
     }
 
     final snapshot = _snapshot!;
+    final library = ref.watch(exerciseLibraryMapProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        AppBackNavigation.navigateBack(context);
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
@@ -154,7 +163,7 @@ class _SharedWorkoutPreviewScreenState
           const SizedBox(height: 6),
           Text(
             'Shared by @${snapshot.creatorUsername}',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppTheme.textSecondary,
               fontWeight: FontWeight.w600,
             ),
@@ -188,7 +197,12 @@ class _SharedWorkoutPreviewScreenState
           Text('Exercises',
               style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
-          ...snapshot.exercises.map((e) => _ExerciseRow(exercise: e)),
+          ...snapshot.exercises.map(
+            (e) => _ExerciseRow(
+              exercise: e,
+              libraryMedia: library[e.exerciseId]?.media,
+            ),
+          ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _saving ? null : _saveCopy,
@@ -206,6 +220,7 @@ class _SharedWorkoutPreviewScreenState
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -248,8 +263,8 @@ class _Tag extends StatelessWidget {
         border: Border.all(color: AppTheme.border),
       ),
       child: Text(label,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: AppTheme.textLabel,
             fontWeight: FontWeight.w700,
             color: AppTheme.textSecondary,
           )),
@@ -259,7 +274,12 @@ class _Tag extends StatelessWidget {
 
 class _ExerciseRow extends StatelessWidget {
   final CustomWorkoutExercise exercise;
-  const _ExerciseRow({required this.exercise});
+  final ExerciseMedia? libraryMedia;
+
+  const _ExerciseRow({
+    required this.exercise,
+    this.libraryMedia,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -277,16 +297,31 @@ class _ExerciseRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (exercise.thumbnailUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: CachedNetworkImage(
-                imageUrl: exercise.thumbnailUrl!,
-                width: 48,
-                height: 48,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: ExerciseMediaWidget(
+                media: resolveExerciseMedia(
+                  exerciseId: exercise.exerciseId,
+                  libraryMedia: libraryMedia,
+                  savedThumbnailUrl: exercise.thumbnailUrl,
+                ),
                 fit: BoxFit.cover,
+                autoplayVideo: false,
+                loopVideo: false,
+                placeholder: Container(
+                  color: AppTheme.surfaceElevated,
+                  child: const Icon(
+                    Icons.fitness_center_rounded,
+                    color: AppTheme.textMuted,
+                    size: 20,
+                  ),
+                ),
               ),
             ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

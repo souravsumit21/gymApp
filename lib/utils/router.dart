@@ -99,6 +99,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
                 routes: [
                   GoRoute(
+                    path: 'edit',
+                    name: 'edit-custom-workout',
+                    builder: (context, state) => CustomWorkoutBuilderScreen(
+                      existingWorkoutId: state.pathParameters['workoutId']!,
+                    ),
+                  ),
+                  GoRoute(
                     path: 'publish',
                     name: 'publish-workout',
                     builder: (context, state) => PublishWorkoutScreen(

@@ -244,7 +244,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _selectedVoice == null
                           ? 'No voice selected'
                           : '$currentGenderLabel voice · tap to change',
-                      style: const TextStyle(color: AppTheme.textSecondary),
+                      style: TextStyle(color: AppTheme.textSecondary),
                     ),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => _openVoicePicker(_selectedGender),
@@ -415,9 +415,9 @@ class _SettingsSection extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 12,
+              fontSize: AppTheme.textLabel,
               height: 1.25,
             ),
           ),

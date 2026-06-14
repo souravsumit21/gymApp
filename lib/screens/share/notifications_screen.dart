@@ -7,6 +7,7 @@ import '../../models/share_models.dart';
 import '../../services/auth_service.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/back_navigation.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -16,7 +17,13 @@ class NotificationsScreen extends ConsumerWidget {
     final uid = ref.watch(authStateProvider).valueOrNull?.uid ?? '';
     final notificationsAsync = ref.watch(notificationsProvider(uid));
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        AppBackNavigation.navigateBack(context);
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
@@ -55,6 +62,7 @@ class NotificationsScreen extends ConsumerWidget {
           );
         },
       ),
+    ),
     );
   }
 }
@@ -113,17 +121,17 @@ class _NotificationTile extends ConsumerWidget {
                       const SizedBox(height: 4),
                       Text(
                         notification.data['workoutName'].toString(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppTheme.textSecondary,
-                          fontSize: 13,
+                          fontSize: AppTheme.textCaption,
                         ),
                       ),
                     ],
                     const SizedBox(height: 6),
                     Text(time,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppTheme.textMuted,
-                          fontSize: 12,
+                          fontSize: AppTheme.textLabel,
                         )),
                   ],
                 ),

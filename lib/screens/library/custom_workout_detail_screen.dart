@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,21 +6,52 @@ import '../../models/exercise_media.dart';
 import '../../services/auth_service.dart';
 import '../../services/library_service.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/workout_share_utils.dart';
+import '../../widgets/exercise_media_widget.dart';
 import '../../widgets/share_workout_sheet.dart';
 
-class CustomWorkoutDetailScreen extends ConsumerWidget {
+class CustomWorkoutDetailScreen extends ConsumerStatefulWidget {
   final String workoutId;
 
   const CustomWorkoutDetailScreen({super.key, required this.workoutId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CustomWorkoutDetailScreen> createState() =>
+      _CustomWorkoutDetailScreenState();
+}
+
+class _CustomWorkoutDetailScreenState
+    extends ConsumerState<CustomWorkoutDetailScreen> {
+  late Future<CustomWorkout?> _workoutFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _workoutFuture = _loadWorkout();
+  }
+
+  Future<CustomWorkout?> _loadWorkout() {
+    final uid = ref.read(authStateProvider).valueOrNull?.uid ?? '';
+    return ref
+        .read(libraryServiceProvider)
+        .getCustomWorkout(uid, widget.workoutId);
+  }
+
+  void _reloadWorkout() {
+    setState(() => _workoutFuture = _loadWorkout());
+  }
+
+  Future<void> _openEdit() async {
+    await context.push('/workouts/custom/${widget.workoutId}/edit');
+    _reloadWorkout();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final uid = ref.watch(authStateProvider).valueOrNull?.uid ?? '';
     final profileAsync = ref.watch(userProfileProvider(uid));
 
     return FutureBuilder<CustomWorkout?>(
-      future: ref.read(libraryServiceProvider).getCustomWorkout(uid, workoutId),
+      future: _workoutFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -40,6 +70,7 @@ class CustomWorkoutDetailScreen extends ConsumerWidget {
         }
 
         final profile = profileAsync.valueOrNull;
+        final library = ref.watch(exerciseLibraryMapProvider);
 
         return Scaffold(
           backgroundColor: AppTheme.background,
@@ -48,6 +79,11 @@ class CustomWorkoutDetailScreen extends ConsumerWidget {
             title: Text(workout.name,
                 style: Theme.of(context).textTheme.headlineSmall),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Edit Workout',
+                onPressed: _openEdit,
+              ),
               if (profile != null)
                 IconButton(
                   icon: const Icon(Icons.share_outlined),
@@ -62,8 +98,8 @@ class CustomWorkoutDetailScreen extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(Icons.public_outlined),
                   tooltip: 'Publish to Community',
-                  onPressed: () =>
-                      context.push('/workouts/custom/$workoutId/publish'),
+                  onPressed: () => context
+                      .push('/workouts/custom/${widget.workoutId}/publish'),
                 ),
             ],
           ),
@@ -74,60 +110,23 @@ class CustomWorkoutDetailScreen extends ConsumerWidget {
                 '${workout.exerciseCount} exercises · ~${workout.estimatedMinutes} min',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              if (workout.targetBodyParts.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: workout.targetBodyParts
-                      .map((p) => _Chip(label: labelTag(p)))
-                      .toList(),
-                ),
-              ],
-              if (workout.selectedEquipment.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: workout.selectedEquipment
-                      .map((e) => _Chip(label: labelTag(e), outlined: true))
-                      .toList(),
-                ),
-              ],
               const SizedBox(height: 24),
               Text('Exercises',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
-              ...workout.exercises.map((e) => _ExerciseTile(exercise: e)),
+              ...workout.exercises.map(
+                (e) => _ExerciseTile(
+                  exercise: e,
+                  libraryMedia: library[e.exerciseId]?.media,
+                ),
+              ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () =>
-                    context.go('/workout/custom/$workoutId/start'),
+                    context.go('/workout/custom/${widget.workoutId}/start'),
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text('Start Workout'),
               ),
-              if (profile != null) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => ShareWorkoutSheet.show(
-                    context,
-                    ref,
-                    workout: workout,
-                    creator: profile,
-                  ),
-                  icon: const Icon(Icons.share_outlined),
-                  label: const Text('Share'),
-                ),
-              ],
-              if (workout.canPublishToCommunity) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      context.push('/workouts/custom/$workoutId/publish'),
-                  icon: const Icon(Icons.public_outlined),
-                  label: const Text('Publish to Community'),
-                ),
-              ],
             ],
           ),
         );
@@ -136,37 +135,14 @@ class CustomWorkoutDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
-  final String label;
-  final bool outlined;
-
-  const _Chip({required this.label, this.outlined = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: outlined ? Colors.transparent : AppTheme.surfaceElevated,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.textSecondary,
-        ),
-      ),
-    );
-  }
-}
-
 class _ExerciseTile extends StatelessWidget {
   final CustomWorkoutExercise exercise;
+  final ExerciseMedia? libraryMedia;
 
-  const _ExerciseTile({required this.exercise});
+  const _ExerciseTile({
+    required this.exercise,
+    required this.libraryMedia,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -184,19 +160,24 @@ class _ExerciseTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (exercise.thumbnailUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: CachedNetworkImage(
-                imageUrl: exercise.thumbnailUrl!,
-                width: 52,
-                height: 52,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: ExerciseMediaWidget(
+                media: resolveExerciseMedia(
+                  exerciseId: exercise.exerciseId,
+                  libraryMedia: libraryMedia,
+                  savedThumbnailUrl: exercise.thumbnailUrl,
+                ),
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _placeholder(),
+                autoplayVideo: false,
+                loopVideo: false,
+                placeholder: _placeholder(),
               ),
-            )
-          else
-            _placeholder(),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/exercise_media.dart';
 import '../../services/library_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/exercise_media_widget.dart';
 import 'exercise_detail_screen.dart';
 
 const _muscleEmoji = {
@@ -66,8 +66,7 @@ class _ExerciseLibraryScreenState
 
   @override
   Widget build(BuildContext context) {
-    final exercisesAsync = ref.watch(filteredExerciseLibraryProvider);
-    final exercises = exercisesAsync.valueOrNull ?? const <LibraryExercise>[];
+    final exercises = ref.watch(filteredExerciseLibraryProvider);
     final filter = ref.watch(libraryFilterProvider);
 
     return Scaffold(
@@ -116,9 +115,9 @@ class _ExerciseLibraryScreenState
                     dividerColor: Colors.transparent,
                     labelColor: AppTheme.background,
                     unselectedLabelColor: AppTheme.textSecondary,
-                    labelStyle: const TextStyle(
+                    labelStyle: TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 12,
+                      fontSize: AppTheme.textLabel,
                     ),
                     tabs: _categories
                         .map((c) => Tab(
@@ -166,9 +165,9 @@ class _ExerciseLibraryScreenState
                 children: [
                   Text(
                     '${exercises.length} exercise${exercises.length != 1 ? 's' : ''}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppTheme.textMuted,
-                      fontSize: 12,
+                      fontSize: AppTheme.textLabel,
                     ),
                   ),
                 ],
@@ -177,11 +176,7 @@ class _ExerciseLibraryScreenState
 
             // Grid
             Expanded(
-              child: exercisesAsync.isLoading && exercises.isEmpty
-                  ? const Center(
-                      child: CircularProgressIndicator(color: AppTheme.primary),
-                    )
-                  : exercises.isEmpty
+              child: exercises.isEmpty
                   ? _EmptyLibraryState(
                       onReset: () {
                         _searchController.clear();
@@ -252,10 +247,10 @@ class _SearchBar extends StatelessWidget {
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+        style: TextStyle(color: AppTheme.textPrimary, fontSize: AppTheme.textLabel),
         decoration: const InputDecoration(
           hintText: 'Search exercises, muscles, tags…',
-          hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 14),
+          hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: AppTheme.textLabel),
           prefixIcon: Icon(Icons.search, color: AppTheme.textMuted, size: 18),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
@@ -372,7 +367,7 @@ class _Chip extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected ? color : AppTheme.textSecondary,
-            fontSize: 12,
+            fontSize: AppTheme.textLabel,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
           ),
         ),
@@ -400,12 +395,9 @@ class _ExerciseCard extends StatefulWidget {
 }
 
 class _ExerciseCardState extends State<_ExerciseCard> {
-  bool _gifLoaded = false;
-
   @override
   Widget build(BuildContext context) {
     final ex = widget.exercise;
-    final mediaUrl = ex.media?.displayUrl;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -425,23 +417,13 @@ class _ExerciseCardState extends State<_ExerciseCard> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (mediaUrl != null)
-                    CachedNetworkImage(
-                      imageUrl: mediaUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => _MediaPlaceholder(name: ex.name),
-                      errorWidget: (_, __, ___) => _MediaPlaceholder(name: ex.name),
-                      imageBuilder: (_, image) {
-                        if (!_gifLoaded) {
-                          WidgetsBinding.instance.addPostFrameCallback(
-                            (_) => setState(() => _gifLoaded = true),
-                          );
-                        }
-                        return Image(image: image, fit: BoxFit.cover);
-                      },
-                    )
-                  else
-                    _MediaPlaceholder(name: ex.name),
+                  ExerciseMediaWidget(
+                    media: ex.media,
+                    fit: BoxFit.cover,
+                    autoplayVideo: false,
+                    loopVideo: false,
+                    placeholder: _MediaPlaceholder(name: ex.name),
+                  ),
 
                   // Gradient overlay at bottom
                   Positioned(
@@ -475,11 +457,11 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                           color: AppTheme.background.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
+                        child: Text(
                           'GIF',
                           style: TextStyle(
                             color: AppTheme.primary,
-                            fontSize: 9,
+                            fontSize: AppTheme.textCaption,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1,
                           ),
@@ -521,9 +503,9 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                   children: [
                     Text(
                       ex.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.textPrimary,
-                        fontSize: 13,
+                        fontSize: AppTheme.textCaption,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
                       ),
@@ -548,9 +530,9 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                       ex.isTimeBased
                           ? '${ex.defaultSets}×${ex.defaultSeconds}s'
                           : '${ex.defaultSets}×${ex.defaultReps ?? '?'} reps',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.textMuted,
-                        fontSize: 11,
+                        fontSize: AppTheme.textLabel,
                       ),
                     ),
                   ],
@@ -581,9 +563,9 @@ class _MediaPlaceholder extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               name,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textMuted,
-                fontSize: 10,
+                fontSize: AppTheme.textCaption,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -612,7 +594,7 @@ class _MiniChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 9,
+          fontSize: AppTheme.textCaption,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -649,7 +631,7 @@ class _DifficultyDot extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           difficulty[0].toUpperCase() + difficulty.substring(1, 3),
-          style: TextStyle(color: _color, fontSize: 9, fontWeight: FontWeight.w600),
+          style: TextStyle(color: _color, fontSize: AppTheme.textCaption, fontWeight: FontWeight.w600),
         ),
       ],
     );

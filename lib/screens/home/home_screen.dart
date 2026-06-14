@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/back_navigation.dart';
 
 // ─────────────────────────────────────────────
 // Shell with Bottom Nav
@@ -17,6 +18,11 @@ class HomeScreen extends StatelessWidget {
     return 0;
   }
 
+  bool _showBottomNav(BuildContext context) {
+    final location = GoRouterState.of(context).matchedLocation;
+    return !location.startsWith('/workouts/custom');
+  }
+
   void _onTabTapped(BuildContext context, int index) {
     switch (index) {
       case 0: context.go('/workouts'); break;
@@ -28,10 +34,12 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final selectedIndex = _locationToIndex(context);
 
-    return Scaffold(
+    return AppBackNavigation.shellScope(
+      child: Scaffold(
       backgroundColor: AppTheme.background,
       body: child,
-      bottomNavigationBar: Container(
+      bottomNavigationBar: _showBottomNav(context)
+          ? Container(
         decoration: BoxDecoration(
           color: AppTheme.surface,
           border: Border(top: BorderSide(color: AppTheme.border)),
@@ -58,7 +66,9 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      )
+          : null,
+    ),
     );
   }
 }
@@ -96,7 +106,7 @@ class _NavItem extends StatelessWidget {
               label,
               style: TextStyle(
                 color: selected ? AppTheme.primary : AppTheme.textMuted,
-                fontSize: 10,
+                fontSize: AppTheme.textCaption,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),

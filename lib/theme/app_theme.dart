@@ -16,6 +16,17 @@ class AppTheme {
   static const Color border = Color(0xFFE5E7EB);
   static const Color cardBg = Color(0xFFFFFFFF);
 
+  /// Compact type scale (~12.5% reduction) for display/headline/stat sizes.
+  static const double fontScale = 0.875;
+
+  static double sz(double base) => (base * fontScale).roundToDouble();
+
+  /// Fixed body/UI sizes — not affected by [fontScale].
+  static const double textBody = 14;
+  static const double textLabel = 12;
+  static const double textCaption = 11;
+  static const double textIcon = 20;
+
   static ThemeData get dark {
     return ThemeData(
       useMaterial3: true,
@@ -32,62 +43,63 @@ class AppTheme {
         onPrimary: background,
       ),
       textTheme: TextTheme(
-        displayLarge: TextStyle(
-          fontFamily: 'DrukWide',
-          fontSize: 48,
-          fontWeight: FontWeight.w900,
-          color: textPrimary,
-          letterSpacing: -1.5,
-        ),
-        displayMedium: TextStyle(
-          fontFamily: 'DrukWide',
-          fontSize: 36,
+        displayLarge: _lexend(
+          fontSize: sz(52),
           fontWeight: FontWeight.w800,
-          color: textPrimary,
-          letterSpacing: -1,
-        ),
-        displaySmall: TextStyle(
-          fontFamily: 'DrukWide',
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
-          color: textPrimary,
           letterSpacing: -0.5,
+          height: 1.05,
         ),
-        headlineLarge: GoogleFonts.spaceGrotesk(
-          fontSize: 24,
+        displayMedium: _lexend(
+          fontSize: sz(48),
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
+          height: 1.05,
+        ),
+        displaySmall: _lexend(
+          fontSize: sz(40),
+          fontWeight: FontWeight.w800,
+          height: 1.0,
+        ),
+        headlineLarge: _lexend(
+          fontSize: sz(32),
           fontWeight: FontWeight.w700,
-          color: textPrimary,
+          letterSpacing: -0.5,
+          height: 1.05,
         ),
-        headlineMedium: GoogleFonts.spaceGrotesk(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
+        headlineMedium: _lexend(
+          fontSize: sz(22),
+          fontWeight: FontWeight.w700,
+          height: 1.05,
         ),
-        headlineSmall: GoogleFonts.spaceGrotesk(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
+        headlineSmall: _lexend(
+          fontSize: sz(22),
+          fontWeight: FontWeight.w700,
+          height: 1.05,
         ),
-        bodyLarge: GoogleFonts.inter(
-          fontSize: 16,
+        bodyLarge: _lexend(
+          fontSize: textBody,
           fontWeight: FontWeight.w400,
-          color: textPrimary,
+          letterSpacing: 0.2,
+          height: 1.65,
         ),
-        bodyMedium: GoogleFonts.inter(
-          fontSize: 14,
+        bodyMedium: _lexend(
+          fontSize: textBody,
           fontWeight: FontWeight.w400,
           color: textSecondary,
+          letterSpacing: 0.2,
+          height: 1.65,
         ),
-        bodySmall: GoogleFonts.inter(
-          fontSize: 12,
+        bodySmall: _lexend(
+          fontSize: textCaption,
           fontWeight: FontWeight.w400,
           color: textMuted,
+          letterSpacing: 0.2,
+          height: 1.65,
         ),
-        labelLarge: GoogleFonts.spaceGrotesk(
-          fontSize: 14,
+        labelLarge: _lexend(
+          fontSize: textLabel,
           fontWeight: FontWeight.w600,
-          color: textPrimary,
-          letterSpacing: 0.5,
+          letterSpacing: 1.5,
         ),
       ),
       cardTheme: CardThemeData(
@@ -104,10 +116,11 @@ class AppTheme {
           foregroundColor: background,
           minimumSize: const Size(double.infinity, 56),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.spaceGrotesk(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
+          textStyle: _lexend(
+            fontSize: textBody,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+            height: 1.05,
           ),
           elevation: 0,
         ),
@@ -118,9 +131,11 @@ class AppTheme {
           minimumSize: const Size(double.infinity, 56),
           side: const BorderSide(color: primary, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.spaceGrotesk(
-            fontSize: 16,
+          textStyle: _lexend(
+            fontSize: textBody,
             fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+            height: 1.05,
           ),
         ),
       ),
@@ -139,18 +154,92 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primary, width: 1.5),
         ),
-        hintStyle: GoogleFonts.inter(color: textMuted, fontSize: 14),
+        hintStyle: _lexend(
+          color: textMuted,
+          fontSize: textBody,
+          letterSpacing: 0.2,
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       dividerTheme: const DividerThemeData(color: border, thickness: 1),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: surface,
         selectedItemColor: primary,
         unselectedItemColor: textMuted,
         elevation: 0,
+        selectedLabelStyle: _lexend(
+          fontSize: textLabel,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.5,
+        ),
+        unselectedLabelStyle: _lexend(
+          fontSize: textLabel,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 1.5,
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: background,
+        foregroundColor: textPrimary,
+        elevation: 0,
+        titleTextStyle: _lexend(
+          fontSize: sz(32),
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
+          height: 1.05,
+        ),
       ),
     );
   }
+
+  static TextStyle _lexend({
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color color = textPrimary,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return GoogleFonts.lexend(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
+}
+
+/// Lexend type-scale helpers for stats and labels outside [TextTheme].
+class AppTypography {
+  AppTypography._();
+
+  static TextStyle statHero({Color color = AppTheme.textPrimary}) =>
+      AppTheme._lexend(
+        fontSize: AppTheme.sz(56),
+        fontWeight: FontWeight.w800,
+        color: color,
+        height: 1.0,
+      );
+
+  static TextStyle stat({
+    Color color = AppTheme.textPrimary,
+    double? fontSize,
+  }) =>
+      AppTheme._lexend(
+        fontSize: fontSize ?? AppTheme.sz(40),
+        fontWeight: FontWeight.w800,
+        color: color,
+        height: 1.0,
+      );
+
+  static TextStyle statLabel({Color color = AppTheme.textMuted}) =>
+      AppTheme._lexend(
+        fontSize: AppTheme.textCaption,
+        fontWeight: FontWeight.w400,
+        color: color,
+        letterSpacing: 1.5,
+        height: 1.65,
+      );
 }
 
 // Custom gradient definitions

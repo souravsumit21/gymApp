@@ -30,22 +30,18 @@ class BadgeShareCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(badge.emoji, style: const TextStyle(fontSize: 56)),
+            Text(badge.emoji, style: TextStyle(fontSize: 56)),
             const SizedBox(height: 16),
             Text(
               badge.title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: AppTheme.textPrimary,
-              ),
+              style: Theme.of(context).textTheme.headlineLarge,
             ),
             const SizedBox(height: 8),
             Text(
               badge.subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
@@ -67,13 +63,13 @@ class BadgeShareCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               ShareConfig.appName,
               style: TextStyle(
                 color: AppTheme.textMuted,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.2,
-                fontSize: 11,
+                fontSize: AppTheme.textLabel,
               ),
             ),
           ],

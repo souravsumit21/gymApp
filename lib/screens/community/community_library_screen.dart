@@ -303,7 +303,7 @@ class _SortBar extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Row(
         children: [
-          const Text('Sort by',
+          Text('Sort by',
               style: TextStyle(
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w600,
@@ -469,7 +469,7 @@ class _CommunityWorkoutCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '@${workout.creatorUsername}',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
@@ -500,7 +500,7 @@ class _CommunityWorkoutCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   '${workout.saveCount}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
@@ -529,8 +529,8 @@ class _MiniTag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 11,
+        style: TextStyle(
+          fontSize: AppTheme.textLabel,
           fontWeight: FontWeight.w700,
           color: AppTheme.textSecondary,
         ),

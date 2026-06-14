@@ -145,7 +145,7 @@ class _PublishWorkoutScreenState extends ConsumerState<PublishWorkoutScreen> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Personal weights are stripped. Only exercise structure, sets, reps, and rest times are published.',
             style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
           ),
@@ -214,8 +214,8 @@ class _Tag extends StatelessWidget {
         border: Border.all(color: AppTheme.border),
       ),
       child: Text(label,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: AppTheme.textLabel,
             fontWeight: FontWeight.w700,
             color: AppTheme.textSecondary,
           )),

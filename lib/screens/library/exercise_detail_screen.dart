@@ -1,9 +1,9 @@
 // lib/screens/library/exercise_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/exercise_media.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/exercise_media_widget.dart';
 
 class ExerciseDetailScreen extends StatefulWidget {
   final LibraryExercise exercise;
@@ -28,6 +28,11 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
   Widget build(BuildContext context) {
     final ex = widget.exercise;
     final hasGif = ex.media?.gifUrl != null;
+    final hasVideo = ex.media?.videoUrl != null &&
+        ex.media?.primaryType == MediaType.video;
+    final hasMedia = ex.media?.videoUrl != null ||
+        ex.media?.gifUrl != null ||
+        ex.media?.thumbnailUrl != null;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -55,26 +60,26 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                 fit: StackFit.expand,
                 children: [
                   // Media
-                  if (ex.media?.displayUrl != null)
-                    CachedNetworkImage(
-                      imageUrl: _showGif
-                          ? (ex.media!.gifUrl ?? ex.media!.displayUrl!)
-                          : (ex.media!.thumbnailUrl ?? ex.media!.displayUrl!),
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: AppTheme.surfaceElevated,
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.primary,
-                            strokeWidth: 2,
+                  if (hasMedia)
+                    SizedBox.expand(
+                      child: ExerciseMediaWidget(
+                        media: hasGif && !_showGif
+                            ? ExerciseMedia(
+                                exerciseId: ex.media!.exerciseId,
+                                primaryType: MediaType.image,
+                                thumbnailUrl: ex.media!.thumbnailUrl,
+                                gifUrl: ex.media!.gifUrl,
+                              )
+                            : ex.media,
+                        fit: BoxFit.cover,
+                        placeholder: Container(
+                          color: AppTheme.surfaceElevated,
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.primary,
+                              strokeWidth: 2,
+                            ),
                           ),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: AppTheme.surfaceElevated,
-                        child: const Center(
-                          child: Icon(Icons.fitness_center_rounded,
-                              color: AppTheme.textMuted, size: 48),
                         ),
                       ),
                     )
@@ -107,8 +112,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                     ),
                   ),
 
-                  // GIF/Static toggle
-                  if (hasGif)
+                  // GIF/Static toggle (legacy GIF exercises only)
+                  if (hasGif && !hasVideo)
                     Positioned(
                       bottom: 16,
                       right: 16,
@@ -135,9 +140,9 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                               const SizedBox(width: 4),
                               Text(
                                 _showGif ? 'Pause GIF' : 'Play GIF',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppTheme.primary,
-                                  fontSize: 11,
+                                  fontSize: AppTheme.textLabel,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -266,9 +271,9 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                                       Expanded(
                                         child: Text(
                                           tip,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: AppTheme.textSecondary,
-                                            fontSize: 14,
+                                            fontSize: AppTheme.textLabel,
                                             height: 1.4,
                                           ),
                                         ),
@@ -308,22 +313,22 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Text('🔥', style: TextStyle(fontSize: 20)),
+                          Text('🔥', style: TextStyle(fontSize: AppTheme.textIcon)),
                           const SizedBox(width: 10),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Calorie burn estimate',
+                              Text('Calorie burn estimate',
                                   style: TextStyle(
                                     color: AppTheme.textSecondary,
-                                    fontSize: 12,
+                                    fontSize: AppTheme.textLabel,
                                   )),
                               Text(
                                 '~${(ex.metValue! * 3.5 * 70 / 200).toStringAsFixed(0)} kcal per set (70kg)',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppTheme.primary,
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 14,
+                                  fontSize: AppTheme.textLabel,
                                 ),
                               ),
                             ],
@@ -382,7 +387,7 @@ class _DifficultyBadge extends StatelessWidget {
         difficulty[0].toUpperCase() + difficulty.substring(1),
         style: TextStyle(
           color: _color,
-          fontSize: 12,
+          fontSize: AppTheme.textLabel,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -416,7 +421,7 @@ class _TagChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: secondary ? AppTheme.textMuted : color,
-          fontSize: 11,
+          fontSize: AppTheme.textLabel,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -444,17 +449,17 @@ class _InfoRow extends StatelessWidget {
                   children: [
                     Text(
                       item.$2,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.primary,
-                        fontSize: 22,
+                        fontSize: 19,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
                       item.$1,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.textMuted,
-                        fontSize: 11,
+                        fontSize: AppTheme.textLabel,
                       ),
                     ),
                   ],
@@ -513,9 +518,9 @@ class _InstructionStep extends StatelessWidget {
             child: Center(
               child: Text(
                 '$step',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppTheme.primary,
-                  fontSize: 11,
+                  fontSize: AppTheme.textLabel,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -525,9 +530,9 @@ class _InstructionStep extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textSecondary,
-                fontSize: 14,
+                fontSize: AppTheme.textLabel,
                 height: 1.5,
               ),
             ),

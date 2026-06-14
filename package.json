@@ -1,10 +1,18 @@
 {
-  "name": "forge-fit-tools",
+  "name": "reppup-tools",
   "private": true,
   "version": "1.0.0",
-  "description": "Utility scripts for Forge Fit data seeding.",
+  "description": "Utility scripts for Repp Up data seeding.",
   "scripts": {
-    "seed:exercisedb": "node scripts/seed_exercisedb_to_firestore.js"
+    "seed:exercisedb": "node scripts/seed_exercisedb_to_firestore.js",
+    "seed:videos": "node scripts/seed_video_metadata_to_firestore.js",
+    "seed:videos:triceps": "node scripts/seed_video_metadata_to_firestore.js --folder Triceps",
+    "seed:videos:triceps:dry": "node scripts/seed_video_metadata_to_firestore.js --folder Triceps --dry-run",
+    "seed:videos:traps": "node scripts/seed_video_metadata_to_firestore.js --folder Traps",
+    "seed:videos:traps:dry": "node scripts/seed_video_metadata_to_firestore.js --folder Traps --dry-run",
+    "seed:videos:all": "node scripts/seed_video_metadata_to_firestore.js --all",
+    "seed:videos:all:dry": "node scripts/seed_video_metadata_to_firestore.js --all --dry-run",
+    "check:r2": "node scripts/check_r2_uploads.js"
   },
   "dependencies": {
     "dotenv": "^16.6.1",

@@ -29,7 +29,7 @@ class MilestoneBadgesSection extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '$unlocked of ${badges.length} unlocked',
-          style: const TextStyle(color: AppTheme.textSecondary),
+          style: TextStyle(color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 14),
         GridView.builder(
@@ -80,7 +80,7 @@ class _BadgeCard extends StatelessWidget {
               Text(
                 badge.emoji,
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 24,
                   color: unlocked ? null : Colors.black26,
                 ),
               ),
@@ -90,24 +90,24 @@ class _BadgeCard extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   color: unlocked ? AppTheme.textPrimary : AppTheme.textMuted,
-                  fontSize: 14,
+                  fontSize: AppTheme.textLabel,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 badge.subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppTheme.textMuted,
-                  fontSize: 11,
+                  fontSize: AppTheme.textLabel,
                 ),
               ),
               const Spacer(),
               if (unlocked)
-                const Text(
+                Text(
                   'Tap to share',
                   style: TextStyle(
                     color: AppTheme.primary,
-                    fontSize: 11,
+                    fontSize: AppTheme.textLabel,
                     fontWeight: FontWeight.w700,
                   ),
                 )
@@ -124,9 +124,9 @@ class _BadgeCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   '${badge.current}/${badge.target}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.textMuted,
-                    fontSize: 11,
+                    fontSize: AppTheme.textLabel,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -150,13 +150,13 @@ class _BadgeCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(badge.emoji, style: const TextStyle(fontSize: 48)),
+            Text(badge.emoji, style: TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
             Text(badge.title,
                 style: Theme.of(ctx).textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(badge.subtitle,
-                style: const TextStyle(color: AppTheme.textSecondary)),
+                style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: () => _shareBadge(ctx),

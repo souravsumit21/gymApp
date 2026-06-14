@@ -3,6 +3,10 @@
 require('dotenv').config();
 
 const admin = require('firebase-admin');
+const {
+  normalizeMuscleList,
+  canonicalizeExerciseMuscles,
+} = require('./lib/muscle_normalization');
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const EXERCISEDB_HOST = process.env.EXERCISEDB_HOST || 'exercisedb.p.rapidapi.com';
@@ -82,20 +86,15 @@ function inferCategory(exercise) {
 }
 
 function mapToAppBodyParts(tokens) {
-  const mapped = new Set();
-  for (const token of tokens) {
-    if (['chest', 'pectorals'].includes(token)) mapped.add('chest');
-    if (['back', 'lats', 'traps', 'upper_back', 'spine'].includes(token)) mapped.add('back');
-    if (['shoulders', 'delts'].includes(token)) mapped.add('shoulders');
-    if (['biceps', 'upper_arms'].includes(token)) mapped.add('biceps');
-    if (['triceps', 'upper_arms'].includes(token)) mapped.add('triceps');
-    if (['quads', 'quadriceps', 'adductors', 'abductors', 'upper_legs'].includes(token)) mapped.add('quads');
-    if (['hamstrings', 'upper_legs'].includes(token)) mapped.add('hamstrings');
-    if (['glutes'].includes(token)) mapped.add('glutes');
-    if (['abs', 'core', 'waist'].includes(token)) mapped.add('core');
-    if (['forearms', 'lower_arms'].includes(token)) mapped.add('forearms');
-  }
-  return [...mapped];
+  return normalizeMuscleList(tokens);
+}
+
+function splitPrimaryAndSecondaryMuscles(targetMuscles, secondaryMuscles, rawBodyParts) {
+  const primary = normalizeMuscleList([...targetMuscles, ...rawBodyParts]);
+  const secondary = normalizeMuscleList(secondaryMuscles).filter(
+    (muscle) => !primary.includes(muscle),
+  );
+  return canonicalizeExerciseMuscles(primary, secondary);
 }
 
 function mediaTypeFor(url, fallback = 'image') {
@@ -167,14 +166,13 @@ function normalizeExercise(exercise) {
     exercise.target,
     ...(exercise.targetMuscles || []),
   ]);
-  const secondaryMuscles = uniqueList(exercise.secondaryMuscles);
-  const appBodyParts = mapToAppBodyParts([
-    ...rawBodyParts,
-    ...targetMuscles,
-    ...secondaryMuscles,
-  ]);
-  const bodyParts = uniqueList([...rawBodyParts, ...appBodyParts]);
-  const muscleGroups = uniqueList([...targetMuscles, ...bodyParts, ...secondaryMuscles]);
+  const sourceSecondaryMuscles = uniqueList(exercise.secondaryMuscles);
+  const { muscleGroups, secondaryMuscles } = splitPrimaryAndSecondaryMuscles(
+    targetMuscles,
+    sourceSecondaryMuscles,
+    rawBodyParts,
+  );
+  const bodyParts = uniqueList([...rawBodyParts, ...muscleGroups, ...secondaryMuscles]);
   const requiredEquipment = uniqueList([
     exercise.equipment,
     ...(exercise.equipments || []),

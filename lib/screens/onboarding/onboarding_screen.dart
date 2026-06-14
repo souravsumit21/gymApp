@@ -341,7 +341,7 @@ class _AboutYouPage extends StatelessWidget {
           TextField(
             controller: nameController,
             textCapitalization: TextCapitalization.words,
-            style: const TextStyle(color: AppTheme.textPrimary),
+            style: TextStyle(color: AppTheme.textPrimary),
             decoration: _inputDecoration('Name'),
           ),
           const SizedBox(height: 20),
@@ -673,13 +673,13 @@ class _SummaryCard extends StatelessWidget {
                       width: 120,
                       child: Text(
                         row.$1,
-                        style: const TextStyle(color: AppTheme.textSecondary),
+                        style: TextStyle(color: AppTheme.textSecondary),
                       ),
                     ),
                     Expanded(
                       child: Text(
                         row.$2,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w700,
                         ),
@@ -885,9 +885,9 @@ class _PickerCard extends StatelessWidget {
             const Spacer(),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.primary,
-                fontSize: 16,
+                fontSize: AppTheme.textBody,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -936,9 +936,9 @@ class _NumberSlider extends StatelessWidget {
             const Spacer(),
             Text(
               '${value.toStringAsFixed(0)} $unit',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.primary,
-                fontSize: 16,
+                fontSize: AppTheme.textBody,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -960,7 +960,7 @@ class _NumberSlider extends StatelessWidget {
 InputDecoration _inputDecoration(String label) {
   return InputDecoration(
     labelText: label,
-    labelStyle: const TextStyle(color: AppTheme.textSecondary),
+    labelStyle: TextStyle(color: AppTheme.textSecondary),
     filled: true,
     fillColor: AppTheme.surfaceElevated,
     border: OutlineInputBorder(
@@ -1004,7 +1004,7 @@ class _OnboardingHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 40)),
+        Text(emoji, style: TextStyle(fontSize: 40)),
         const SizedBox(height: 16),
         Text(
           title,

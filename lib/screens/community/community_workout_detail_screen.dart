@@ -1,12 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/exercise_media.dart';
 import '../../models/share_models.dart';
 import '../../services/auth_service.dart';
 import '../../services/community_service.dart';
+import '../../services/library_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/workout_share_utils.dart';
+import '../../widgets/exercise_media_widget.dart';
 import '../../widgets/share_workout_sheet.dart';
 
 class CommunityWorkoutDetailScreen extends ConsumerStatefulWidget {
@@ -137,6 +138,7 @@ class _CommunityWorkoutDetailScreenState
     }
 
     final workout = _workout;
+    final library = ref.watch(exerciseLibraryMapProvider);
     if (workout == null) {
       return Scaffold(
         appBar: AppBar(backgroundColor: AppTheme.background),
@@ -163,7 +165,7 @@ class _CommunityWorkoutDetailScreenState
         children: [
           Text(
             '@${workout.creatorUsername}',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppTheme.textSecondary,
               fontWeight: FontWeight.w600,
             ),
@@ -171,7 +173,7 @@ class _CommunityWorkoutDetailScreenState
           const SizedBox(height: 8),
           Text(
             workout.description,
-            style: const TextStyle(color: AppTheme.textPrimary, height: 1.45),
+            style: TextStyle(color: AppTheme.textPrimary, height: 1.45),
           ),
           const SizedBox(height: 12),
           Text(
@@ -193,8 +195,12 @@ class _CommunityWorkoutDetailScreenState
           Text('Exercises',
               style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
-          ...workout.snapshot.exercises
-              .map((e) => _ExerciseTile(exercise: e)),
+          ...workout.snapshot.exercises.map(
+            (e) => _ExerciseTile(
+              exercise: e,
+              libraryMedia: library[e.exerciseId]?.media,
+            ),
+          ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _saving ? null : _saveCopy,
@@ -242,8 +248,8 @@ class _Tag extends StatelessWidget {
         border: Border.all(color: AppTheme.border),
       ),
       child: Text(label,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: AppTheme.textLabel,
             fontWeight: FontWeight.w700,
             color: AppTheme.textSecondary,
           )),
@@ -253,7 +259,12 @@ class _Tag extends StatelessWidget {
 
 class _ExerciseTile extends StatelessWidget {
   final CustomWorkoutExercise exercise;
-  const _ExerciseTile({required this.exercise});
+  final ExerciseMedia? libraryMedia;
+
+  const _ExerciseTile({
+    required this.exercise,
+    this.libraryMedia,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -271,19 +282,24 @@ class _ExerciseTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (exercise.thumbnailUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: CachedNetworkImage(
-                imageUrl: exercise.thumbnailUrl!,
-                width: 52,
-                height: 52,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: ExerciseMediaWidget(
+                media: resolveExerciseMedia(
+                  exerciseId: exercise.exerciseId,
+                  libraryMedia: libraryMedia,
+                  savedThumbnailUrl: exercise.thumbnailUrl,
+                ),
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _placeholder(),
+                autoplayVideo: false,
+                loopVideo: false,
+                placeholder: _placeholder(),
               ),
-            )
-          else
-            _placeholder(),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

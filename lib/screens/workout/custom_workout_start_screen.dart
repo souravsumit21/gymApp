@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,7 +16,11 @@ import '../../services/workout_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/progress_calculator.dart';
 import '../../utils/share_config.dart';
+import '../../widgets/exercise_media_widget.dart';
+import '../../utils/back_navigation.dart';
+import '../../widgets/minimal_exercise_session_layout.dart';
 import '../../widgets/share_workout_sheet.dart';
+import '../../widgets/workout_pause_overlay.dart';
 
 const _uuid = Uuid();
 
@@ -26,12 +29,13 @@ enum _WorkoutMode { standard, circuit }
 enum _WorkoutStage {
   config,
   warmup,
+  exercise,
+  restChoice,
+  restCountdown,
   getReady,
-  standardSet,
-  restSet,
-  restExercise,
   circuitExercise,
   circuitRestExercise,
+  restExercise,
   complete,
 }
 
@@ -75,7 +79,6 @@ class _CustomWorkoutStartScreenState
   int _warmupIndex = 0;
   int _timerLeft = 0;
   int _exerciseIndex = 0;
-  int _setIndex = 1;
   int _roundIndex = 1;
   int _completedUnits = 0;
   int _totalUnits = 1;
@@ -84,7 +87,6 @@ class _CustomWorkoutStartScreenState
   final Map<String, List<Map<String, dynamic>>> _weightLog = {};
   bool _announcedWorkoutStart = false;
   VoidCallback? _afterGetReady;
-  String _getReadyPreview = 'First exercise';
   String? _baselineSetupSignature;
   String? _startedSetupSignature;
   List<CustomWorkoutPresetExercise> _startedPresetExercises = [];
@@ -228,12 +230,7 @@ class _CustomWorkoutStartScreenState
   int get _estimatedDuration {
     final workSeconds = _exercises.fold<int>(0, (acc, exercise) {
       if (_mode == _WorkoutMode.standard) {
-        final unitSeconds = exercise.reps * 3;
-        return acc +
-            (exercise.sets * unitSeconds) +
-            ((exercise.sets - 1).clamp(0, 99) * exercise.restBetweenSets) +
-            _getReadySeconds +
-            exercise.restBetweenExercises;
+        return acc + (exercise.sets * exercise.reps * 3);
       }
       final unitSeconds = exercise.seconds ?? _circuitExerciseSeconds;
       return acc +
@@ -313,14 +310,105 @@ class _CustomWorkoutStartScreenState
     _totalSets = 0;
     _announcedWorkoutStart = false;
     _totalUnits = _mode == _WorkoutMode.standard
-        ? _exercises.fold<int>(0, (acc, e) => acc + e.sets)
+        ? _exercises.length
         : _exercises.length * _rounds;
     if (_warmups.isNotEmpty) {
       _startWarmup();
     } else if (_mode == _WorkoutMode.standard) {
-      _startStandardSet();
+      _startStandardExercise();
     } else {
       _startCircuitRound();
+    }
+  }
+
+  String _exerciseTargetText(_RunExercise exercise) {
+    if (exercise.seconds != null) {
+      return '${exercise.sets} × ${exercise.seconds}s';
+    }
+    return '${exercise.sets} × ${exercise.reps}';
+  }
+
+  void _startStandardExercise() {
+    _announceExerciseStart(_currentExercise.source.exerciseName);
+    setState(() {
+      _paused = false;
+      _stage = _WorkoutStage.exercise;
+    });
+  }
+
+  void _completeStandardExercise() {
+    _logWeight(_currentExercise);
+    _totalSets += _currentExercise.sets;
+    _completedUnits++;
+
+    if (_exerciseIndex >= _exercises.length - 1) {
+      _completeWorkout();
+      return;
+    }
+
+    setState(() => _stage = _WorkoutStage.restChoice);
+  }
+
+  void _onRestChoiceSelected(int seconds) {
+    if (seconds <= 0) {
+      _advanceToNextExercise();
+      return;
+    }
+    setState(() {
+      _stage = _WorkoutStage.restCountdown;
+      _timerLeft = seconds;
+      _paused = false;
+    });
+    _startTimer(_advanceToNextExercise);
+  }
+
+  void _advanceToNextExercise() {
+    setState(() {
+      _exerciseIndex++;
+      _paused = false;
+    });
+    _startStandardExercise();
+  }
+
+  void _handleStandardBack() {
+    switch (_stage) {
+      case _WorkoutStage.restChoice:
+        setState(() => _stage = _WorkoutStage.exercise);
+        break;
+      case _WorkoutStage.restCountdown:
+        _timer?.cancel();
+        setState(() => _stage = _WorkoutStage.restChoice);
+        break;
+      case _WorkoutStage.exercise:
+        if (_exerciseIndex > 0) {
+          final completedExercise = _exercises[_exerciseIndex - 1];
+          setState(() {
+            _exerciseIndex--;
+            if (_completedUnits > 0) {
+              _completedUnits--;
+              _totalSets -= completedExercise.sets;
+            }
+            _stage = _WorkoutStage.exercise;
+          });
+          _announceExerciseStart(_currentExercise.source.exerciseName);
+        } else if (_warmups.isNotEmpty) {
+          setState(() {
+            _warmupIndex = _warmups.length - 1;
+            _stage = _WorkoutStage.warmup;
+          });
+        } else {
+          _leaveWorkoutScreen();
+        }
+        break;
+      case _WorkoutStage.warmup:
+        if (_warmupIndex > 0) {
+          setState(() => _warmupIndex--);
+        } else {
+          _leaveWorkoutScreen();
+        }
+        break;
+      default:
+        _leaveWorkoutScreen();
     }
   }
 
@@ -330,7 +418,6 @@ class _CustomWorkoutStartScreenState
     setState(() {
       _paused = false;
       _stage = _WorkoutStage.getReady;
-      _getReadyPreview = preview;
       _timerLeft = _getReadySeconds;
     });
     _startTimer(() {
@@ -342,23 +429,22 @@ class _CustomWorkoutStartScreenState
 
   void _startWarmup() {
     final warmup = _warmups[_warmupIndex];
-    final seconds = warmup.defaultSeconds ?? 30;
     _announceExerciseStart(warmup.name);
     setState(() {
       _paused = false;
       _stage = _WorkoutStage.warmup;
-      _timerLeft = seconds;
     });
-    _startTimer(() {
-      if (_warmupIndex < _warmups.length - 1) {
-        setState(() => _warmupIndex++);
-        _startWarmup();
-      } else if (_mode == _WorkoutMode.standard) {
-        _startStandardSet();
-      } else {
-        _startCircuitRound();
-      }
-    });
+  }
+
+  void _completeWarmup() {
+    if (_warmupIndex < _warmups.length - 1) {
+      setState(() => _warmupIndex++);
+      _startWarmup();
+    } else if (_mode == _WorkoutMode.standard) {
+      _startStandardExercise();
+    } else {
+      _startCircuitRound();
+    }
   }
 
   void _startTimer(VoidCallback onDone, {bool countdownToRest = false}) {
@@ -389,7 +475,9 @@ class _CustomWorkoutStartScreenState
   }
 
   void _togglePause() {
-    if (_stage == _WorkoutStage.config || _stage == _WorkoutStage.complete) {
+    if (_stage == _WorkoutStage.config ||
+        _stage == _WorkoutStage.complete ||
+        _mode == _WorkoutMode.standard) {
       return;
     }
     if (_paused) {
@@ -411,48 +499,6 @@ class _CustomWorkoutStartScreenState
     }
     _announcedWorkoutStart = true;
     voice.announceWorkoutStart(exerciseName);
-  }
-
-  void _startStandardSet() {
-    _startGetReady(_currentExercise.source.exerciseName, () {
-      _announceExerciseStart(_currentExercise.source.exerciseName);
-      setState(() => _stage = _WorkoutStage.standardSet);
-    });
-  }
-
-  void _completeStandardSet() {
-    _logWeight(_currentExercise, set: _setIndex);
-    _totalSets++;
-    _completedUnits++;
-    if (_setIndex < _currentExercise.sets) {
-      setState(() {
-        _paused = false;
-        _setIndex++;
-        _stage = _WorkoutStage.restSet;
-        _timerLeft = _restSeconds(_currentExercise.restBetweenSets);
-      });
-      ref.read(voiceCueServiceProvider).announceRest();
-      _startTimer(_startStandardSet);
-      return;
-    }
-
-    if (_exerciseIndex < _exercises.length - 1) {
-      setState(() {
-        _paused = false;
-        _stage = _WorkoutStage.restExercise;
-        _timerLeft = _restSeconds(_currentExercise.restBetweenExercises);
-      });
-      ref.read(voiceCueServiceProvider).announceRest();
-      _startTimer(() {
-        setState(() {
-          _exerciseIndex++;
-          _setIndex = 1;
-        });
-        _startStandardSet();
-      });
-    } else {
-      _completeWorkout();
-    }
   }
 
   void _startCircuitRound() {
@@ -513,32 +559,15 @@ class _CustomWorkoutStartScreenState
   void _skipTimer() {
     _timer?.cancel();
     _paused = false;
-    if (_stage == _WorkoutStage.warmup) {
-      if (_warmupIndex < _warmups.length - 1) {
-        setState(() => _warmupIndex++);
-        _startWarmup();
-      } else if (_mode == _WorkoutMode.standard) {
-        _startStandardSet();
-      } else {
-        _startCircuitRound();
-      }
-    } else if (_stage == _WorkoutStage.restSet) {
-      _startStandardSet();
+    if (_stage == _WorkoutStage.restCountdown) {
+      _advanceToNextExercise();
     } else if (_stage == _WorkoutStage.getReady) {
       final callback = _afterGetReady;
       _afterGetReady = null;
       callback?.call();
     } else if (_stage == _WorkoutStage.restExercise) {
-      if (_mode == _WorkoutMode.standard) {
-        setState(() {
-          _exerciseIndex++;
-          _setIndex = 1;
-        });
-        _startStandardSet();
-      } else {
-        setState(() => _roundIndex++);
-        _startCircuitRound();
-      }
+      setState(() => _roundIndex++);
+      _startCircuitRound();
     } else if (_stage == _WorkoutStage.circuitRestExercise) {
       setState(() => _exerciseIndex++);
       _startCircuitExerciseWithGetReady();
@@ -623,6 +652,16 @@ class _CustomWorkoutStartScreenState
     }
   }
 
+  void _leaveWorkoutScreen() {
+    _timer?.cancel();
+    ref.read(voiceCueServiceProvider).stop();
+    if (!mounted) return;
+    AppBackNavigation.navigateBack(
+      context,
+      fallback: '/workouts/custom/${widget.workoutId}',
+    );
+  }
+
   void _exitToWorkouts() {
     _timer?.cancel();
     ref.read(voiceCueServiceProvider).stop();
@@ -645,9 +684,9 @@ class _CustomWorkoutStartScreenState
       barrierDismissible: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('End workout?',
+        title: Text('End workout?',
             style: TextStyle(color: AppTheme.textPrimary)),
-        content: const Text('Your progress will be saved.',
+        content: Text('Your progress will be saved.',
             style: TextStyle(color: AppTheme.textSecondary)),
         actions: [
           TextButton(
@@ -752,12 +791,12 @@ class _CustomWorkoutStartScreenState
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('Save as Preset',
+        title: Text('Save as Preset',
             style: TextStyle(color: AppTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: AppTheme.textPrimary),
+          style: TextStyle(color: AppTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Preset name',
             hintText: 'Heavy Strength, Quick Circuit...',
@@ -833,35 +872,41 @@ class _CustomWorkoutStartScreenState
           );
         }
 
-        return Scaffold(
-          backgroundColor: AppTheme.background,
-          body: SafeArea(
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    if (_stage == _WorkoutStage.config)
-                      _ConfigTopBar(
-                        title: _workout!.name,
-                        onClose: _exitToWorkouts,
-                      ),
-                    if (_stage != _WorkoutStage.config &&
-                        _stage != _WorkoutStage.complete)
-                      _WorkoutTopBar(
-                        title: _workout!.name,
-                        progress: _progress,
-                        onPause: _pauseWorkout,
-                        onEnd: _confirmEndWorkout,
-                      ),
-                    Expanded(child: _buildStage()),
-                  ],
-                ),
-                if (_paused)
-                  _PauseOverlay(
-                    onResume: _resumeWorkout,
-                    onEnd: _confirmEndWorkout,
+        final inSession = _stage != _WorkoutStage.config &&
+            _stage != _WorkoutStage.complete;
+
+        return AppBackNavigation.workoutScope(
+          isActiveSession: inSession,
+          pauseBeforeLeave: _mode == _WorkoutMode.circuit,
+          isPaused: _paused,
+          onPause: _pauseWorkout,
+          onBack: _mode == _WorkoutMode.standard
+              ? _handleStandardBack
+              : _leaveWorkoutScreen,
+          child: Scaffold(
+            backgroundColor:
+                inSession ? AppTheme.surfaceElevated : AppTheme.background,
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      if (_stage == _WorkoutStage.config)
+                        _ConfigTopBar(
+                          title: _workout!.name,
+                          onClose: _leaveWorkoutScreen,
+                        ),
+                      if (inSession) WorkoutProgressBar(progress: _progress),
+                      Expanded(child: _buildStage()),
+                    ],
                   ),
-              ],
+                  if (_paused && _mode == _WorkoutMode.circuit)
+                    WorkoutPauseOverlay(
+                      onResume: _resumeWorkout,
+                      onEnd: _confirmEndWorkout,
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -916,55 +961,56 @@ class _CustomWorkoutStartScreenState
           warmup: _warmups[_warmupIndex],
           index: _warmupIndex,
           total: _warmups.length,
+          onNext: _completeWarmup,
+        );
+      case _WorkoutStage.exercise:
+        return _StandardExerciseView(
+          exercise: _currentExercise,
+          exerciseIndex: _exerciseIndex,
+          totalExercises: _exercises.length,
+          targetText: _exerciseTargetText(_currentExercise),
+          isKg: _isKg,
+          onEditWeight: () => _editWeight(_currentExercise),
+          onNext: _completeStandardExercise,
+        );
+      case _WorkoutStage.restChoice:
+        return _RestChoiceView(
+          onSelect: _onRestChoiceSelected,
+        );
+      case _WorkoutStage.restCountdown:
+        final nextExercise = _exercises[_exerciseIndex + 1];
+        return _StandardRestCountdownView(
           secondsLeft: _timerLeft,
+          upcomingExerciseName: nextExercise.source.exerciseName,
+          upcomingMedia: resolveExerciseMedia(
+            exerciseId: nextExercise.source.exerciseId,
+            libraryMedia: nextExercise.libraryExercise?.media,
+            savedThumbnailUrl: nextExercise.source.thumbnailUrl,
+          ),
           onSkip: _skipTimer,
-          onTogglePause: _togglePause,
         );
       case _WorkoutStage.getReady:
         return _RestView(
-          title: 'Get Ready',
+          progressLabel: 'Get Ready',
+          exerciseName: _currentExercise.source.exerciseName,
           secondsLeft: _timerLeft,
-          preview: _getReadyPreview,
-          thumbnailUrl: _currentExercise.source.thumbnailUrl,
+          media: resolveExerciseMedia(
+            exerciseId: _currentExercise.source.exerciseId,
+            libraryMedia: _currentExercise.libraryExercise?.media,
+            savedThumbnailUrl: _currentExercise.source.thumbnailUrl,
+          ),
           onSkip: _skipTimer,
           onTogglePause: _togglePause,
-        );
-      case _WorkoutStage.standardSet:
-        return _ActiveExerciseView(
-          exercise: _currentExercise,
-          label: 'Set $_setIndex of ${_currentExercise.sets}',
-          isKg: _isKg,
-          progressText:
-              '${_currentExercise.reps}${_currentExercise.seconds == null ? ' reps' : ' sec'}',
-          onEditWeight: () => _editWeight(_currentExercise),
-          onDone: _completeStandardSet,
-          onTogglePause: _togglePause,
-        );
-      case _WorkoutStage.restSet:
-        return _RestView(
-          title: 'Rest Between Sets',
-          secondsLeft: _timerLeft,
-          preview: 'Set $_setIndex of ${_currentExercise.sets} coming up',
-          onSkip: _skipTimer,
-          onTogglePause: _togglePause,
+          showPauseHint: true,
         );
       case _WorkoutStage.restExercise:
-        final next = _mode == _WorkoutMode.standard
-            ? (_exerciseIndex + 1 < _exercises.length
-                ? _exercises[_exerciseIndex + 1]
-                : null)
-            : null;
         return _RestView(
-          title: _mode == _WorkoutMode.standard
-              ? 'Rest Between Exercises'
-              : 'Rest Between Rounds',
+          progressLabel: 'Rest Between Rounds',
+          exerciseName: 'Round ${_roundIndex + 1}',
           secondsLeft: _timerLeft,
-          preview: next == null
-              ? 'Round ${_roundIndex + 1} coming up'
-              : 'Next: ${next.source.exerciseName}',
-          thumbnailUrl: next?.source.thumbnailUrl,
           onSkip: _skipTimer,
           onTogglePause: _togglePause,
+          showPauseHint: true,
         );
       case _WorkoutStage.circuitExercise:
         return _ActiveExerciseView(
@@ -975,20 +1021,27 @@ class _CustomWorkoutStartScreenState
           onEditWeight: () => _editWeight(_currentExercise),
           onDone: _completeCircuitExercise,
           onTogglePause: _togglePause,
+          showPauseHint: true,
         );
       case _WorkoutStage.circuitRestExercise:
         final next = _exerciseIndex + 1 < _exercises.length
             ? _exercises[_exerciseIndex + 1]
             : null;
         return _RestView(
-          title: 'Rest Between Exercises',
+          progressLabel: 'Rest Between Exercises',
+          exerciseName:
+              next?.source.exerciseName ?? _currentExercise.source.exerciseName,
           secondsLeft: _timerLeft,
-          preview: next == null
-              ? 'Round complete'
-              : 'Next: ${next.source.exerciseName}',
-          thumbnailUrl: next?.source.thumbnailUrl,
+          media: next == null
+              ? null
+              : resolveExerciseMedia(
+                  exerciseId: next.source.exerciseId,
+                  libraryMedia: next.libraryExercise?.media,
+                  savedThumbnailUrl: next.source.thumbnailUrl,
+                ),
           onSkip: _skipTimer,
           onTogglePause: _togglePause,
+          showPauseHint: true,
         );
       case _WorkoutStage.complete:
         return _CompleteView(
@@ -1205,34 +1258,26 @@ class _ConfigView extends StatelessWidget {
                   ],
                 ),
               ),
-              _ConfigCard(
-                title: 'Rest Timers',
-                children: [
-                  Text('Get Ready Timer',
-                      style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
-                  _SecondsPicker(
-                    value: getReadySeconds,
-                    options: const [3, 5, 10, 15],
-                    onChanged: onGetReadyChanged,
-                  ),
-                  const SizedBox(height: 14),
-                  if (mode == _WorkoutMode.standard) ...[
-                    Text('Rest Between Sets',
+              if (mode == _WorkoutMode.circuit)
+                _ConfigCard(
+                  title: 'Rest Timers',
+                  children: [
+                    Text('Get Ready Timer',
+                        style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 8),
+                    _SecondsPicker(
+                      value: getReadySeconds,
+                      options: const [3, 5, 10, 15],
+                      onChanged: onGetReadyChanged,
+                    ),
+                    const SizedBox(height: 14),
+                    Text('Rest Between Exercises',
                         style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 8),
                     _RestPicker(
-                        value: restBetweenSets, onChanged: onRestSetsChanged),
-                    const SizedBox(height: 14),
-                  ],
-                  Text('Rest Between Exercises',
-                      style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
-                  _RestPicker(
-                    value: restBetweenExercises,
-                    onChanged: onRestExercisesChanged,
-                  ),
-                  if (mode == _WorkoutMode.circuit) ...[
+                      value: restBetweenExercises,
+                      onChanged: onRestExercisesChanged,
+                    ),
                     const SizedBox(height: 14),
                     Text('Rest Between Rounds',
                         style: Theme.of(context).textTheme.labelLarge),
@@ -1242,8 +1287,7 @@ class _ConfigView extends StatelessWidget {
                       onChanged: onRestRoundsChanged,
                     ),
                   ],
-                ],
-              ),
+                ),
               _ConfigCard(
                 title: 'Exercise List',
                 children: [
@@ -1322,86 +1366,227 @@ class _ConfigTopBar extends StatelessWidget {
   }
 }
 
-class _WorkoutTopBar extends StatelessWidget {
-  final String title;
-  final double progress;
-  final VoidCallback onPause;
-  final VoidCallback onEnd;
+class _WarmupView extends StatelessWidget {
+  final LibraryExercise warmup;
+  final int index;
+  final int total;
+  final VoidCallback onNext;
 
-  const _WorkoutTopBar({
-    required this.title,
-    required this.progress,
-    required this.onPause,
-    required this.onEnd,
+  const _WarmupView({
+    required this.warmup,
+    required this.index,
+    required this.total,
+    required this.onNext,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                onPressed: onPause,
-                icon: const Icon(Icons.pause_circle_outline,
-                    color: AppTheme.textSecondary),
-              ),
-              IconButton(
-                onPressed: onEnd,
-                icon: const Icon(Icons.close, color: AppTheme.accent),
-              ),
-            ],
+    return MinimalExerciseSessionLayout(
+      media: warmup.media,
+      progressLabel: 'Warmup ${index + 1} of $total',
+      exerciseName: warmup.name,
+      counterText: 'Ready',
+      onAction: onNext,
+      actionIcon: Icons.skip_next_rounded,
+      actionTooltip: 'Next',
+    );
+  }
+}
+
+class _StandardExerciseView extends StatelessWidget {
+  final _RunExercise exercise;
+  final int exerciseIndex;
+  final int totalExercises;
+  final String targetText;
+  final bool isKg;
+  final VoidCallback onEditWeight;
+  final VoidCallback onNext;
+
+  const _StandardExerciseView({
+    required this.exercise,
+    required this.exerciseIndex,
+    required this.totalExercises,
+    required this.targetText,
+    required this.isKg,
+    required this.onEditWeight,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MinimalExerciseSessionLayout(
+      media: resolveExerciseMedia(
+        exerciseId: exercise.source.exerciseId,
+        libraryMedia: exercise.libraryExercise?.media,
+        savedThumbnailUrl: exercise.source.thumbnailUrl,
+      ),
+      progressLabel: 'Exercise ${exerciseIndex + 1} of $totalExercises',
+      exerciseName: exercise.source.exerciseName,
+      counterText: targetText,
+      onAction: onNext,
+      actionIcon: Icons.skip_next_rounded,
+      actionTooltip: 'Next exercise',
+      footer: GestureDetector(
+        onTap: onEditWeight,
+        child: Text(
+          exercise.weightKg == null
+              ? 'Tap to log weight'
+              : 'Weight: ${exercise.weightKg!.toStringAsFixed(1)} ${isKg ? 'kg' : 'lbs'}',
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: AppTheme.textLabel,
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            decorationColor: AppTheme.textMuted,
           ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 5,
-              backgroundColor: AppTheme.border,
-              color: AppTheme.primary,
+        ),
+      ),
+    );
+  }
+}
+
+class _RestChoiceView extends StatelessWidget {
+  final ValueChanged<int> onSelect;
+
+  const _RestChoiceView({
+    required this.onSelect,
+  });
+
+  static const _options = [
+    (0, 'Start now'),
+    (15, 'Start in 15s'),
+    (30, 'Start in 30s'),
+    (60, 'Start in 60s'),
+    (120, 'Start in 120s'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Choose rest time',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const Spacer(),
+          ..._options.map(
+            (option) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: ElevatedButton(
+                onPressed: () => onSelect(option.$1),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 52),
+                  backgroundColor:
+                      option.$1 == 0 ? AppTheme.accent : AppTheme.cardBg,
+                  foregroundColor:
+                      option.$1 == 0 ? Colors.white : AppTheme.textPrimary,
+                  side: option.$1 == 0
+                      ? null
+                      : const BorderSide(color: AppTheme.border),
+                ),
+                child: Text(option.$2),
+              ),
             ),
           ),
+          const Spacer(flex: 2),
         ],
       ),
     );
   }
 }
 
-class _WarmupView extends StatelessWidget {
-  final LibraryExercise warmup;
-  final int index;
-  final int total;
+class _StandardRestCountdownView extends StatelessWidget {
   final int secondsLeft;
+  final String upcomingExerciseName;
+  final ExerciseMedia? upcomingMedia;
   final VoidCallback onSkip;
-  final VoidCallback onTogglePause;
 
-  const _WarmupView({
-    required this.warmup,
-    required this.index,
-    required this.total,
+  const _StandardRestCountdownView({
     required this.secondsLeft,
+    required this.upcomingExerciseName,
+    required this.upcomingMedia,
     required this.onSkip,
-    required this.onTogglePause,
   });
 
   @override
   Widget build(BuildContext context) {
-    return _TimerScaffold(
-      title: 'Warmup ${index + 1} of $total',
-      subtitle: warmup.name,
-      imageUrl: warmup.media?.displayUrl,
-      secondsLeft: secondsLeft,
-      onSkip: onSkip,
-      onTogglePause: onTogglePause,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
+          child: Column(
+            children: [
+              const Spacer(),
+              Text(
+                'Rest',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '$secondsLeft',
+                style: AppTypography.statHero(),
+              ),
+              const Spacer(flex: 2),
+              Text(
+                'Upcoming Exercise',
+                style: TextStyle(
+                  color: AppTheme.textMuted,
+                  fontSize: AppTheme.textLabel,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _ExerciseImage(
+                    media: upcomingMedia,
+                    height: 56,
+                    width: 56,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      upcomingExerciseName,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: AppTheme.textBody,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          right: 20,
+          bottom: 28,
+          child: FloatingActionButton(
+            onPressed: onSkip,
+            tooltip: 'Skip',
+            backgroundColor: AppTheme.accent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            highlightElevation: 0,
+            shape: const CircleBorder(),
+            child: const Icon(Icons.skip_next_rounded),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1414,6 +1599,7 @@ class _ActiveExerciseView extends StatelessWidget {
   final VoidCallback onEditWeight;
   final VoidCallback onDone;
   final VoidCallback onTogglePause;
+  final bool showPauseHint;
 
   const _ActiveExerciseView({
     required this.exercise,
@@ -1423,97 +1609,73 @@ class _ActiveExerciseView extends StatelessWidget {
     required this.onEditWeight,
     required this.onDone,
     required this.onTogglePause,
+    this.showPauseHint = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTogglePause,
-      child: Stack(
-        children: [
-          ListView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 96),
-            children: [
-              _ExerciseImage(
-                  url: exercise.libraryExercise?.media?.displayUrl,
-                  height: 260),
-              const SizedBox(height: 20),
-              Text(
-                exercise.source.exerciseName,
-                style: Theme.of(context).textTheme.displaySmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(label,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 18),
-              Text(
-                progressText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppTheme.primary,
-                  fontSize: 52,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Tap screen to pause',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-              ),
-              const SizedBox(height: 14),
-              _WeightPanel(
-                exercise: exercise,
-                isKg: isKg,
-                onTap: onEditWeight,
-                title: 'Weight',
-              ),
-            ],
+    return MinimalExerciseSessionLayout(
+      media: resolveExerciseMedia(
+        exerciseId: exercise.source.exerciseId,
+        libraryMedia: exercise.libraryExercise?.media,
+        savedThumbnailUrl: exercise.source.thumbnailUrl,
+      ),
+      progressLabel: label,
+      exerciseName: exercise.source.exerciseName,
+      counterText: progressText,
+      onTap: showPauseHint ? onTogglePause : null,
+      onAction: onDone,
+      actionTooltip: 'Complete',
+      showPauseHint: showPauseHint,
+      footer: GestureDetector(
+        onTap: onEditWeight,
+        child: Text(
+          exercise.weightKg == null
+              ? 'Tap to log weight'
+              : 'Weight: ${exercise.weightKg!.toStringAsFixed(1)} ${isKg ? 'kg' : 'lbs'}',
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: AppTheme.textLabel,
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            decorationColor: AppTheme.textMuted,
           ),
-          Positioned(
-            right: 20,
-            bottom: 20,
-            child: IconButton.filled(
-              tooltip: 'Complete exercise',
-              onPressed: onDone,
-              icon: const Icon(Icons.check_rounded),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _RestView extends StatelessWidget {
-  final String title;
+  final String progressLabel;
+  final String exerciseName;
   final int secondsLeft;
-  final String preview;
-  final String? thumbnailUrl;
+  final ExerciseMedia? media;
   final VoidCallback onSkip;
-  final VoidCallback onTogglePause;
+  final VoidCallback? onTogglePause;
+  final bool showPauseHint;
 
   const _RestView({
-    required this.title,
+    required this.progressLabel,
+    required this.exerciseName,
     required this.secondsLeft,
-    required this.preview,
-    this.thumbnailUrl,
+    this.media,
     required this.onSkip,
-    required this.onTogglePause,
+    this.onTogglePause,
+    this.showPauseHint = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return _TimerScaffold(
-      title: title,
-      subtitle: preview,
-      imageUrl: thumbnailUrl,
-      secondsLeft: secondsLeft,
-      onSkip: onSkip,
-      onTogglePause: onTogglePause,
+    return MinimalExerciseSessionLayout(
+      media: media,
+      progressLabel: progressLabel,
+      exerciseName: exerciseName,
+      counterText: '$secondsLeft',
+      onTap: showPauseHint ? onTogglePause : null,
+      onAction: onSkip,
+      actionTooltip: 'Skip',
+      showPauseHint: showPauseHint,
     );
   }
 }
@@ -1548,13 +1710,13 @@ class _CompleteViewState extends State<_CompleteView> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 32, 20, 28),
       children: [
-        const Text('Workout Complete',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTheme.primary,
-              fontSize: 34,
-              fontWeight: FontWeight.w900,
-            )),
+        Text(
+          'Workout Complete',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                color: AppTheme.primary,
+              ),
+        ),
         const SizedBox(height: 24),
         Row(
           children: [
@@ -1596,7 +1758,7 @@ class _CompleteViewState extends State<_CompleteView> {
                 Text('You changed this workout setup',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Save the mode, order, sets, reps, and rest timers as a reusable preset.',
                   style: TextStyle(color: AppTheme.textSecondary, height: 1.35),
                 ),
@@ -1619,7 +1781,7 @@ class _CompleteViewState extends State<_CompleteView> {
         Text('Weight Log', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 10),
         if (widget.weightLog.isEmpty)
-          const Text('No weights logged.',
+          Text('No weights logged.',
               style: TextStyle(color: AppTheme.textSecondary))
         else
           ...widget.weightLog.values.expand((entries) {
@@ -1670,122 +1832,6 @@ class _CompleteViewState extends State<_CompleteView> {
   }
 }
 
-class _TimerScaffold extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String? imageUrl;
-  final int secondsLeft;
-  final VoidCallback onSkip;
-  final VoidCallback onTogglePause;
-
-  const _TimerScaffold({
-    required this.title,
-    required this.subtitle,
-    this.imageUrl,
-    required this.secondsLeft,
-    required this.onSkip,
-    required this.onTogglePause,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTogglePause,
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (imageUrl != null) ...[
-                  _ExerciseImage(url: imageUrl, height: 160),
-                  const SizedBox(height: 22),
-                ],
-                Text(title, style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 8),
-                Text(subtitle,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 26),
-                Text(
-                  '$secondsLeft',
-                  style: const TextStyle(
-                    color: AppTheme.primary,
-                    fontSize: 72,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Tap screen to pause',
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 20,
-            bottom: 20,
-            child: IconButton.filledTonal(
-              tooltip: 'Skip',
-              onPressed: onSkip,
-              icon: const Icon(Icons.skip_next_rounded),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PauseOverlay extends StatelessWidget {
-  final VoidCallback onResume;
-  final VoidCallback onEnd;
-
-  const _PauseOverlay({required this.onResume, required this.onEnd});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onResume,
-      child: Container(
-        color: AppTheme.background.withOpacity(0.92),
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.all(28),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Paused', style: Theme.of(context).textTheme.displaySmall),
-                const SizedBox(height: 8),
-                const Text(
-                  'Tap anywhere to resume',
-                  style: TextStyle(color: AppTheme.textSecondary),
-                ),
-                const SizedBox(height: 24),
-                TextButton(
-                  onPressed: onEnd,
-                  child: const Text('End Workout',
-                      style: TextStyle(color: AppTheme.accent)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _MetricCard extends StatelessWidget {
   final String label;
   final String value;
@@ -1805,12 +1851,12 @@ class _MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textSecondary,
-                fontSize: 12,
+                fontSize: AppTheme.textLabel,
               )),
           const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.headlineSmall),
+          Text(value, style: AppTypography.stat()),
         ],
       ),
     );
@@ -1902,7 +1948,7 @@ class _StepperConfig extends StatelessWidget {
       children: [
         Expanded(
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w700,
               )),
@@ -1916,11 +1962,9 @@ class _StepperConfig extends StatelessWidget {
           child: Text(
             '$value',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppTheme.primary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppTheme.primary,
+                ),
           ),
         ),
         IconButton(
@@ -2022,7 +2066,14 @@ class _ConfigExerciseTile extends StatelessWidget {
               const Icon(Icons.shuffle, color: AppTheme.textMuted),
             const SizedBox(width: 10),
             _ExerciseImage(
-                url: exercise.source.thumbnailUrl, height: 52, width: 52),
+              media: resolveExerciseMedia(
+                exerciseId: exercise.source.exerciseId,
+                libraryMedia: exercise.libraryExercise?.media,
+                savedThumbnailUrl: exercise.source.thumbnailUrl,
+              ),
+              height: 52,
+              width: 52,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -2031,7 +2082,7 @@ class _ConfigExerciseTile extends StatelessWidget {
                   Text(
                     exercise.source.exerciseName,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
@@ -2040,10 +2091,10 @@ class _ConfigExerciseTile extends StatelessWidget {
                   Text(
                     isCircuit
                         ? '${exercise.seconds ?? 30}s work · ${exercise.restBetweenExercises}s rest'
-                        : '${exercise.sets} sets · ${exercise.reps} reps · ${exercise.restBetweenSets}s rest',
-                    style: const TextStyle(
+                        : '${exercise.sets} sets · ${exercise.reps} reps',
+                    style: TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 12,
+                      fontSize: AppTheme.textLabel,
                     ),
                   ),
                 ],
@@ -2099,7 +2150,7 @@ class _PresetTile extends StatelessWidget {
                 children: [
                   Text(
                     preset.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
@@ -2107,9 +2158,9 @@ class _PresetTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${_label(preset.mode)} · ${preset.exercises.length} exercises · ~${preset.estimatedMinutes} min',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 12,
+                      fontSize: AppTheme.textLabel,
                     ),
                   ),
                 ],
@@ -2124,17 +2175,22 @@ class _PresetTile extends StatelessWidget {
 }
 
 class _ExerciseImage extends StatelessWidget {
-  final String? url;
+  final ExerciseMedia? media;
   final double height;
   final double? width;
 
-  const _ExerciseImage({required this.url, required this.height, this.width});
+  const _ExerciseImage({
+    required this.media,
+    required this.height,
+    this.width,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final boxWidth = width ?? double.infinity;
     final placeholder = Container(
       height: height,
-      width: width ?? double.infinity,
+      width: boxWidth,
       color: AppTheme.surfaceElevated,
       child: const Center(
         child: Icon(Icons.fitness_center_rounded,
@@ -2145,65 +2201,13 @@ class _ExerciseImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: SizedBox(
         height: height,
-        width: width ?? double.infinity,
-        child: url == null
-            ? placeholder
-            : CachedNetworkImage(
-                imageUrl: url!,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => placeholder,
-                errorWidget: (_, __, ___) => placeholder,
-              ),
-      ),
-    );
-  }
-}
-
-class _WeightPanel extends StatelessWidget {
-  final _RunExercise exercise;
-  final bool isKg;
-  final VoidCallback onTap;
-  final String title;
-
-  const _WeightPanel({
-    required this.exercise,
-    required this.isKg,
-    required this.onTap,
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final weightText = exercise.weightKg == null
-        ? 'Not set'
-        : '${exercise.weightKg!.toStringAsFixed(1)} ${isKg ? 'kg' : 'lbs'}';
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 6),
-                  Text(
-                    weightText,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.edit, color: AppTheme.primary),
-          ],
+        width: boxWidth,
+        child: ExerciseMediaWidget(
+          media: media,
+          fit: BoxFit.cover,
+          autoplayVideo: false,
+          loopVideo: false,
+          placeholder: placeholder,
         ),
       ),
     );
@@ -2282,21 +2286,15 @@ class _ExerciseConfigSheetState extends State<_ExerciseConfigSheet> {
               max: 100,
               onChanged: (v) => setState(() => reps = v),
             ),
+          ],
+          if (isCircuit)
             _StepperConfig(
-              label: 'Rest between sets',
-              value: restSets,
+              label: 'Rest between exercises',
+              value: restExercises,
               min: 5,
               max: 180,
-              onChanged: (v) => setState(() => restSets = v),
+              onChanged: (v) => setState(() => restExercises = v),
             ),
-          ],
-          _StepperConfig(
-            label: 'Rest between exercises',
-            value: restExercises,
-            min: 5,
-            max: 180,
-            onChanged: (v) => setState(() => restExercises = v),
-          ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
@@ -2381,11 +2379,7 @@ class _WeightSheetState extends State<_WeightSheet> {
           Center(
             child: Text(
               '${weight.toStringAsFixed(1)} ${isKg ? 'kg' : 'lbs'}',
-              style: const TextStyle(
-                color: AppTheme.primary,
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-              ),
+              style: AppTypography.stat(color: AppTheme.primary),
             ),
           ),
           const SizedBox(height: 16),
@@ -2430,13 +2424,13 @@ class _WeightLogTile extends StatelessWidget {
           Expanded(
             child: Text(
               '${entry['exerciseName']} · $setLabel',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          Text(weight, style: const TextStyle(color: AppTheme.textSecondary)),
+          Text(weight, style: TextStyle(color: AppTheme.textSecondary)),
         ],
       ),
     );

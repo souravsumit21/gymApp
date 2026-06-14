@@ -3,8 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import '../../services/auth_service.dart';
-import '../../services/purchase_service.dart';
+
+import '../../config/revenue_cat_config.dart';
+import '../../providers/premium_providers.dart';
 import '../../theme/app_theme.dart';
 
 class PaywallScreen extends ConsumerStatefulWidget {
@@ -15,35 +16,15 @@ class PaywallScreen extends ConsumerStatefulWidget {
 }
 
 class _PaywallScreenState extends ConsumerState<PaywallScreen> {
-  bool _isLoading = false;
-  bool _isRestoring = false;
-  Offerings? _offerings;
   Package? _selectedPackage;
-  String? _error;
+  bool _isPurchasing = false;
+  bool _isRestoring = false;
 
   @override
   void initState() {
     super.initState();
-    _loadOfferings();
-  }
-
-  Future<void> _loadOfferings() async {
-    final uid = ref.read(authStateProvider).valueOrNull?.uid;
-    if (uid != null) {
-      await PurchaseService.initialize(uid);
-    }
-    final svc = ref.read(purchaseServiceProvider);
-    if (!PurchaseService.isConfigured) {
-      setState(() {
-        _error = 'Purchases are not configured yet.';
-      });
-      return;
-    }
-    final offerings = await svc.getOfferings();
-    setState(() {
-      _offerings = offerings;
-      // Default to annual if available
-      _selectedPackage = offerings?.current?.annual ?? offerings?.current?.monthly;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(premiumNotifierProvider.notifier).loadOfferings();
     });
   }
 
@@ -57,51 +38,34 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
   Future<void> _purchase() async {
     if (_selectedPackage == null) return;
-    setState(() { _isLoading = true; _error = null; });
-    try {
-      final svc = ref.read(purchaseServiceProvider);
-      final success = await svc.purchase(_selectedPackage!);
-      if (!mounted) return;
-      if (success) {
-        _leavePaywall();
-      } else {
-        setState(() => _error = 'Purchase was cancelled.');
-      }
-    } catch (e) {
-      setState(() => _error = 'Purchase failed: ${e.toString()}');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    setState(() => _isPurchasing = true);
+    final success =
+        await ref.read(premiumNotifierProvider.notifier).purchase(_selectedPackage!);
+    if (!mounted) return;
+    setState(() => _isPurchasing = false);
+    if (success) _leavePaywall();
   }
 
   Future<void> _restore() async {
-    setState(() { _isRestoring = true; _error = null; });
-    try {
-      final svc = ref.read(purchaseServiceProvider);
-      final restored = await svc.restore();
-      if (!mounted) return;
-      if (restored) {
-        _leavePaywall();
-      } else {
-        setState(() => _error = 'No active subscription found.');
-      }
-    } catch (e) {
-      setState(() => _error = 'Restore failed.');
-    } finally {
-      if (mounted) setState(() => _isRestoring = false);
-    }
+    setState(() => _isRestoring = true);
+    final restored = await ref.read(premiumNotifierProvider.notifier).restore();
+    if (!mounted) return;
+    setState(() => _isRestoring = false);
+    if (restored) _leavePaywall();
   }
 
   @override
   Widget build(BuildContext context) {
-    final annualPackage = _offerings?.current?.annual;
-    final monthlyPackage = _offerings?.current?.monthly;
+    final premium = ref.watch(premiumNotifierProvider);
+    final annualPackage = premium.annualPackage;
+    final monthlyPackage = premium.monthlyPackage;
+
+    _selectedPackage ??= annualPackage ?? monthlyPackage;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: Stack(
         children: [
-          // Background glow
           Positioned(
             top: -150,
             left: -100,
@@ -119,30 +83,28 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               ),
             ),
           ),
-
           SafeArea(
             child: Column(
               children: [
-                // Close button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
                       const Spacer(),
                       IconButton(
                         onPressed: _leavePaywall,
-                        icon: const Icon(Icons.close, color: AppTheme.textMuted),
+                        icon:
+                            const Icon(Icons.close, color: AppTheme.textMuted),
                       ),
                     ],
                   ),
                 ),
-
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
-                        // Crown icon
                         Container(
                           width: 80,
                           height: 80,
@@ -152,75 +114,100 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                           ),
                           child: const Icon(Icons.bolt_rounded,
                               color: AppTheme.background, size: 46),
-                        ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
-
+                        ).animate().scale(
+                              duration: 600.ms,
+                              curve: Curves.elasticOut,
+                            ),
                         const SizedBox(height: 24),
-
                         Text(
-                          'FORGE PRO',
-                          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            color: AppTheme.primary,
-                            letterSpacing: 3,
-                          ),
+                          'REPP UP PRO',
+                          style: Theme.of(context)
+                              .textTheme
+                              .displaySmall
+                              ?.copyWith(
+                                color: AppTheme.primary,
+                                letterSpacing: 3,
+                              ),
                         ).animate().fadeIn(delay: 200.ms),
-
                         const SizedBox(height: 8),
-
                         Text(
-                          'Unlock your full potential',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
+                          'Unlock your full training toolkit',
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
                         ).animate().fadeIn(delay: 300.ms),
-
                         const SizedBox(height: 36),
-
-                        // Feature list
                         for (final feature in [
-                          ('⚡', 'AI-Powered Workout Plans', 'Custom plans built by Claude AI for your exact goals'),
-                          ('🎯', 'Body Part Targeting', 'Isolate and train specific muscle groups'),
-                          ('📅', 'Weekly Schedules', 'Plan your full week with rest days'),
-                          ('📊', 'Progress Tracking', 'Calendar, streaks, and performance charts'),
-                          ('♾️', 'Unlimited Plans', 'Create and save as many plans as you need'),
+                          (
+                            '⚡',
+                            'AI Workout Plans',
+                            'Personalized multi-day plans for your goals'
+                          ),
+                          (
+                            '🏋️',
+                            'Custom Workouts',
+                            'Build unlimited workouts with your equipment'
+                          ),
+                          (
+                            '📊',
+                            'Progress Tracking',
+                            'Streaks, charts, and milestone badges'
+                          ),
+                          (
+                            '🌐',
+                            'Community Sharing',
+                            'Share and discover workouts with others'
+                          ),
                         ])
                           _FeatureRow(
                             icon: feature.$1,
                             title: feature.$2,
                             subtitle: feature.$3,
                           ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.1),
-
                         const SizedBox(height: 32),
-
-                        // Plan selector
-                        if (annualPackage != null || monthlyPackage != null) ...[
-                          Text('Choose your plan',
-                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                color: AppTheme.textSecondary,
-                              )),
+                        if (!RevenueCatConfig.hasApiKeys)
+                          _ConfigNotice()
+                        else if (premium.isLoadingOfferings)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                          )
+                        else if (annualPackage != null ||
+                            monthlyPackage != null) ...[
+                          Text(
+                            'Choose your plan',
+                            style:
+                                Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                          ),
                           const SizedBox(height: 12),
-
                           if (annualPackage != null)
                             _PlanCard(
                               package: annualPackage,
                               isSelected: _selectedPackage?.identifier ==
                                   annualPackage.identifier,
                               badge: 'BEST VALUE',
-                              onTap: () =>
-                                  setState(() => _selectedPackage = annualPackage),
+                              onTap: () => setState(
+                                () => _selectedPackage = annualPackage,
+                              ),
                             ),
-
                           const SizedBox(height: 10),
-
                           if (monthlyPackage != null)
                             _PlanCard(
                               package: monthlyPackage,
                               isSelected: _selectedPackage?.identifier ==
                                   monthlyPackage.identifier,
-                              onTap: () =>
-                                  setState(() => _selectedPackage = monthlyPackage),
+                              onTap: () => setState(
+                                () => _selectedPackage = monthlyPackage,
+                              ),
                             ),
                         ] else
-                          // Skeleton while loading
                           Column(
                             children: [
                               _SkeletonCard(),
@@ -228,38 +215,42 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                               _SkeletonCard(),
                             ],
                           ),
-
-                        const SizedBox(height: 24),
-
-                        // Error
-                        if (_error != null)
+                        if (premium.lastError != null) ...[
+                          const SizedBox(height: 16),
                           Container(
+                            width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: AppTheme.accent.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+                              border: Border.all(
+                                color: AppTheme.accent.withOpacity(0.3),
+                              ),
                             ),
-                            child: Text(_error!,
-                                style: const TextStyle(
-                                  color: AppTheme.accent,
-                                  fontSize: 13,
-                                )),
+                            child: Text(
+                              premium.lastError!,
+                              style: TextStyle(
+                                color: AppTheme.accent,
+                                fontSize: AppTheme.textCaption,
+                              ),
+                            ),
                           ),
-
+                        ],
                         const SizedBox(height: 16),
                       ],
                     ),
                   ),
                 ),
-
-                // Bottom CTA
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
                   child: Column(
                     children: [
                       ElevatedButton(
-                        onPressed: _isLoading ? null : _purchase,
+                        onPressed: _isPurchasing ||
+                                !RevenueCatConfig.hasApiKeys ||
+                                _selectedPackage == null
+                            ? null
+                            : _purchase,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary,
                           foregroundColor: AppTheme.background,
@@ -268,7 +259,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: _isLoading
+                        child: _isPurchasing
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
@@ -277,22 +268,26 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                                   strokeWidth: 2.5,
                                 ),
                               )
-                            : const Text(
-                                'Start Free Trial',
+                            : Text(
+                                'Subscribe',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: AppTheme.textBody,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                       ),
                       const SizedBox(height: 12),
                       TextButton(
-                        onPressed: _isRestoring ? null : _restore,
+                        onPressed: _isRestoring || !RevenueCatConfig.hasApiKeys
+                            ? null
+                            : _restore,
                         child: Text(
-                          _isRestoring ? 'Restoring...' : 'Restore Purchase',
-                          style: const TextStyle(
+                          _isRestoring
+                              ? 'Restoring...'
+                              : 'Restore Purchase',
+                          style: TextStyle(
                             color: AppTheme.textMuted,
-                            fontSize: 13,
+                            fontSize: AppTheme.textCaption,
                           ),
                         ),
                       ),
@@ -309,6 +304,25 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ConfigNotice extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Text(
+        'RevenueCat is not configured yet. Add API keys via --dart-define to load offerings and enable purchases.',
+        style: TextStyle(color: AppTheme.textSecondary, height: 1.45),
       ),
     );
   }
@@ -340,25 +354,30 @@ class _FeatureRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppTheme.border),
             ),
-            child: Center(child: Text(icon, style: const TextStyle(fontSize: 18))),
+            child:
+                Center(child: Text(icon, style: TextStyle(fontSize: AppTheme.textIcon))),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    )),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: AppTheme.textBody,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                    )),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: AppTheme.textLabel,
+                  ),
+                ),
               ],
             ),
           ),
@@ -432,23 +451,25 @@ class _PlanCard extends StatelessWidget {
                               ? AppTheme.primary
                               : AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: AppTheme.textBody,
                         ),
                       ),
                       if (badge != null) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.primary,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             badge!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppTheme.background,
-                              fontSize: 9,
+                              fontSize: AppTheme.textCaption,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1,
                             ),
@@ -459,9 +480,9 @@ class _PlanCard extends StatelessWidget {
                   ),
                   Text(
                     package.storeProduct.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 12,
+                      fontSize: AppTheme.textLabel,
                     ),
                   ),
                 ],
@@ -472,7 +493,7 @@ class _PlanCard extends StatelessWidget {
               style: TextStyle(
                 color: isSelected ? AppTheme.primary : AppTheme.textPrimary,
                 fontWeight: FontWeight.w800,
-                fontSize: 16,
+                fontSize: AppTheme.textBody,
               ),
             ),
           ],

@@ -6,7 +6,9 @@ import '../../models/exercise_media.dart';
 import '../../models/models.dart';
 import '../../services/auth_service.dart';
 import '../../services/library_service.dart';
-import '../../services/purchase_service.dart';
+import '../../config/revenue_cat_config.dart';
+import '../../providers/premium_providers.dart';
+import '../../widgets/premium_gate.dart';
 import '../../services/notification_service.dart';
 import '../../services/workout_service.dart';
 import '../../theme/app_theme.dart';
@@ -22,13 +24,18 @@ class WorkoutPlansScreen extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
     final uid = authState.valueOrNull?.uid ?? '';
     final hasUid = uid.isNotEmpty;
-    final premiumAsync = ref.watch(premiumStatusProvider);
+    final hasAiAccess = ref.watch(
+      premiumFeatureAccessProvider(PremiumFeature.aiWorkoutPlans),
+    );
     final plansAsync = hasUid
         ? ref.watch(plansStreamProvider(uid))
         : const AsyncValue<List<WorkoutPlan>>.loading();
     final customWorkoutsAsync = hasUid
         ? ref.watch(customWorkoutsProvider(uid))
         : const AsyncValue<List<CustomWorkout>>.loading();
+
+    // Preload exercise library (bundled first, Firestore refresh in background).
+    ref.watch(exerciseLibraryProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -110,71 +117,61 @@ class WorkoutPlansScreen extends ConsumerWidget {
               onTap: () => context.go('/workouts/custom/new'),
             ),
           ),
-          const SliverToBoxAdapter(
-            child: _SectionHeader(title: 'Your Workouts'),
-          ),
           customWorkoutsAsync.when(
-            loading: () => const SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(color: AppTheme.primary),
-                ),
-              ),
-            ),
+            loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
             error: (e, _) => SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 child: Text('Error: $e',
                     style: const TextStyle(color: AppTheme.accent)),
               ),
             ),
             data: (workouts) {
               if (workouts.isEmpty) {
-                return const SliverToBoxAdapter(
-                    child: _EmptyCustomWorkoutState());
+                return const SliverToBoxAdapter(child: SizedBox.shrink());
               }
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) => _CustomWorkoutCard(
-                      workout: workouts[i],
-                      userId: uid,
-                      onTap: () =>
-                          context.go('/workouts/custom/${workouts[i].id}'),
-                      onStart: () => context
-                          .go('/workout/custom/${workouts[i].id}/start'),
-                      onShare: () async {
-                        final profile =
-                            await ref.read(userProfileProvider(uid).future);
-                        if (profile != null && context.mounted) {
-                          await ShareWorkoutSheet.show(
-                            context,
-                            ref,
-                            workout: workouts[i],
-                            creator: profile,
-                          );
-                        }
-                      },
-                      onDelete: () => ref
-                          .read(libraryServiceProvider)
-                          .deleteCustomWorkout(uid, workouts[i].id),
-                    ).animate().fadeIn(delay: (i * 60).ms),
-                    childCount: workouts.length,
+              return SliverMainAxisGroup(
+                slivers: [
+                  const SliverToBoxAdapter(
+                    child: _SectionHeader(title: 'Your Workouts'),
                   ),
-                ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => _CustomWorkoutCard(
+                          workout: workouts[i],
+                          userId: uid,
+                          onTap: () =>
+                              context.go('/workouts/custom/${workouts[i].id}'),
+                          onStart: () => context
+                              .go('/workout/custom/${workouts[i].id}/start'),
+                          onShare: () async {
+                            final profile =
+                                await ref.read(userProfileProvider(uid).future);
+                            if (profile != null && context.mounted) {
+                              await ShareWorkoutSheet.show(
+                                context,
+                                ref,
+                                workout: workouts[i],
+                                creator: profile,
+                              );
+                            }
+                          },
+                          onDelete: () => ref
+                              .read(libraryServiceProvider)
+                              .deleteCustomWorkout(uid, workouts[i].id),
+                        ).animate().fadeIn(delay: (i * 60).ms),
+                        childCount: workouts.length,
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
           ),
-          premiumAsync.when(
-            loading: () => const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: _AiPlansSectionHeader(isLocked: true),
-              ),
-            ),
-            error: (_, __) => SliverToBoxAdapter(
+          if (!hasAiAccess)
+            SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -182,39 +179,31 @@ class WorkoutPlansScreen extends ConsumerWidget {
                     padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: _AiPlansSectionHeader(isLocked: true),
                   ),
-                  _AiPlansLockedCard(onTap: () => context.go('/paywall')),
-                ],
-              ),
-            ),
-            data: (isPremium) {
-              if (!isPremium) {
-                return SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-                        child: _AiPlansSectionHeader(isLocked: true),
-                      ),
-                      _AiPlansLockedCard(
-                        onTap: () => context.go('/paywall'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return SliverMainAxisGroup(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                      child: _AiPlansSectionHeader(
-                        isLocked: false,
-                        onCreate: () => context.go('/workouts/create'),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    child: PremiumLockedCard(
+                      title: 'Unlock AI Workout Plans',
+                      description:
+                          'Get personalized multi-day plans generated for your goals, equipment, and schedule. Premium unlocks AI plans — custom workouts will join the subscription before launch.',
+                      icon: Icons.auto_awesome_rounded,
                     ),
                   ),
-                  plansAsync.when(
+                ],
+              ),
+            )
+          else
+            SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: _AiPlansSectionHeader(
+                      isLocked: false,
+                      onCreate: () => context.go('/workouts/create'),
+                    ),
+                  ),
+                ),
+                plansAsync.when(
                 loading: () => const SliverToBoxAdapter(
                   child: Center(
                     child: Padding(
@@ -255,9 +244,7 @@ class WorkoutPlansScreen extends ConsumerWidget {
                 },
                   ),
                 ],
-              );
-            },
-          ),
+              ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
@@ -399,7 +386,7 @@ class _PrimaryCustomWorkoutCta extends StatelessWidget {
                         'Start Building',
                         style: TextStyle(
                           color: AppTheme.primary,
-                          fontSize: 16,
+                          fontSize: AppTheme.textBody,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -470,7 +457,7 @@ class _AiPlansSectionHeader extends StatelessWidget {
                   'Premium',
                   style: TextStyle(
                     color: AppTheme.textMuted,
-                    fontSize: 10,
+                    fontSize: AppTheme.textCaption,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
                   ),
@@ -569,9 +556,9 @@ class _CustomWorkoutCard extends ConsumerWidget {
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             '${presets.length} preset${presets.length == 1 ? '' : 's'} saved',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppTheme.primary,
-                              fontSize: 12,
+                              fontSize: AppTheme.textLabel,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -616,14 +603,14 @@ class _CustomWorkoutCard extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Workout?',
+        title: Text('Delete Workout?',
             style: TextStyle(color: AppTheme.textPrimary)),
-        content: const Text('This custom workout will be removed.',
+        content: Text('This custom workout will be removed.',
             style: TextStyle(color: AppTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppTheme.textSecondary)),
           ),
           TextButton(
@@ -656,102 +643,10 @@ class _MiniChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppTheme.textSecondary,
-          fontSize: 11,
+          fontSize: AppTheme.textLabel,
           fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyCustomWorkoutState extends StatelessWidget {
-  const _EmptyCustomWorkoutState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(40, 8, 40, 24),
-      child: Column(
-        children: [
-          const Icon(Icons.playlist_add_rounded,
-              color: AppTheme.textMuted, size: 48),
-          const SizedBox(height: 12),
-          Text(
-            'No custom workouts yet',
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Create your own workout from the exercise library.',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AiPlansLockedCard extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _AiPlansLockedCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceElevated,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentYellow.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: AppTheme.accentYellow,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    'Unlock AI Workout Plans',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Get personalized multi-day plans generated for your goals, equipment, and schedule. Premium unlocks AI plans — custom workouts will join the subscription before launch.',
-              style: TextStyle(color: AppTheme.textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onTap,
-                icon: const Icon(Icons.lock_open_rounded, size: 18),
-                label: const Text('Unlock Premium'),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -764,9 +659,6 @@ String _label(String value) => value
         part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1)}')
     .join(' ');
 
-// ─────────────────────────────────────────────
-// Empty state
-// ─────────────────────────────────────────────
 class _EmptyPlansState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -838,7 +730,7 @@ class _PlanCard extends StatelessWidget {
               child: Center(
                 child: Text(
                   plan.isAiGenerated ? '🤖' : '📋',
-                  style: const TextStyle(fontSize: 24),
+                  style: TextStyle(fontSize: 21),
                 ),
               ),
             ),
@@ -866,10 +758,10 @@ class _PlanCard extends StatelessWidget {
                             border: Border.all(
                                 color: AppTheme.accentYellow.withOpacity(0.3)),
                           ),
-                          child: const Text('AI',
+                          child: Text('AI',
                               style: TextStyle(
                                 color: AppTheme.accentYellow,
-                                fontSize: 9,
+                                fontSize: AppTheme.textCaption,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1,
                               )),
@@ -903,14 +795,14 @@ class _PlanCard extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Plan?',
+        title: Text('Delete Plan?',
             style: TextStyle(color: AppTheme.textPrimary)),
         content: Text('This action cannot be undone.',
             style: TextStyle(color: AppTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppTheme.textSecondary)),
           ),
           TextButton(

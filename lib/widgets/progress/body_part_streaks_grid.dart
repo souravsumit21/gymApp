@@ -16,7 +16,7 @@ class BodyPartStreaksGrid extends StatelessWidget {
         Text('Body Part Streaks',
             style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Balanced training at a glance',
           style: TextStyle(color: AppTheme.textSecondary),
         ),
@@ -92,18 +92,16 @@ class _BodyPartCard extends StatelessWidget {
           const Spacer(),
           Text(
             info.weekStreak > 0 ? '${info.weekStreak} weeks' : '—',
-            style: TextStyle(
-              color: _accent,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: _accent,
+                ),
           ),
           const SizedBox(height: 4),
           Text(
             formatLastTrained(info.lastTrained, now),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 12,
+              fontSize: AppTheme.textLabel,
               fontWeight: FontWeight.w600,
             ),
           ),

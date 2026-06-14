@@ -1,8 +1,8 @@
-# Forge Fit Product Requirements Document
+# Repp Up Product Requirements Document
 
 ## 1. Overview
 
-Forge Fit is a mobile-first home workout app for iOS and Android. It helps users sign in, complete a short fitness onboarding flow, generate or create workout plans, follow guided active workouts, browse an exercise library with animated media, and track progress over time.
+Repp Up is a mobile-first home workout app for iOS and Android. It helps users sign in, complete a short fitness onboarding flow, generate or create workout plans, follow guided active workouts, browse an exercise library with animated media, and track progress over time.
 
 The current codebase is a Flutter app using Firebase for authentication and user data, RevenueCat for premium access, and Anthropic Claude for AI-generated workout plans. The product direction is a polished consumer fitness app that can start with seeded exercise media and grow into a richer managed library later.
 
@@ -123,10 +123,10 @@ The current codebase is a Flutter app using Firebase for authentication and user
 
 - Use RevenueCat for offerings, purchases, restore purchases, and entitlement checks.
 - Product IDs:
-  - `forge_fit_monthly`
-  - `forge_fit_annual`
+  - `repp_up_monthly`
+  - `repp_up_annual`
 - Entitlement:
-  - `forge_fit_premium`
+  - `repp_up_premium`
 - Premium checks should gracefully handle unavailable RevenueCat setup in development.
 
 ### AI Workout Generation
@@ -368,7 +368,7 @@ exercise_library/{exerciseId}
 
 - [ ] Create RevenueCat project.
 - [ ] Create monthly and annual products in stores.
-- [ ] Create `forge_fit_premium` entitlement.
+- [ ] Create `repp_up_premium` entitlement.
 - [ ] Configure offerings.
 - [ ] Add Android and iOS RevenueCat API keys.
 - [ ] Initialize RevenueCat after sign-in.

@@ -54,18 +54,16 @@ class WorkoutShareCard extends StatelessWidget {
                     children: [
                       Text(
                         snapshot.name,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.textPrimary,
-                        ),
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'by @${snapshot.creatorUsername}',
-                        style: const TextStyle(
-                          fontSize: 13,
+                        style: TextStyle(
+                          fontSize: AppTheme.textCaption,
                           color: AppTheme.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
@@ -78,7 +76,7 @@ class WorkoutShareCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               '${snapshot.exerciseCount} exercises · ~${snapshot.estimatedMinutes} min',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
@@ -122,8 +120,8 @@ class WorkoutShareCard extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
                     formatExerciseLine(e),
-                    style: const TextStyle(
-                      fontSize: 12,
+                    style: TextStyle(
+                      fontSize: AppTheme.textLabel,
                       color: AppTheme.textPrimary,
                       height: 1.35,
                     ),
@@ -132,17 +130,17 @@ class WorkoutShareCard extends StatelessWidget {
             if (snapshot.exercises.length > 6)
               Text(
                 '+ ${snapshot.exercises.length - 6} more exercises',
-                style: const TextStyle(
-                  fontSize: 11,
+                style: TextStyle(
+                  fontSize: AppTheme.textLabel,
                   color: AppTheme.textMuted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               ShareConfig.appName,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: AppTheme.textLabel,
                 color: AppTheme.textMuted,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.2,
@@ -172,8 +170,8 @@ class _TagChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 10,
+        style: TextStyle(
+          fontSize: AppTheme.textCaption,
           fontWeight: FontWeight.w700,
           color: AppTheme.textSecondary,
         ),

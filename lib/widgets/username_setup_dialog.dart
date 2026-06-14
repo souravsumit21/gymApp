@@ -94,7 +94,7 @@ class _UsernameSetupDialogState extends ConsumerState<UsernameSetupDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Pick a unique @username so others can find you when sharing workouts.',
             style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
           ),
@@ -111,9 +111,9 @@ class _UsernameSetupDialogState extends ConsumerState<UsernameSetupDialog> {
             onSubmitted: (_) => _saving ? null : _save(),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             '3+ characters · letters, numbers, underscores',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: AppTheme.textLabel),
           ),
         ],
       ),
